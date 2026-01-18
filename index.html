@@ -177,7 +177,7 @@ void main() {
     float splitRandX2 = (fract(sin(splitSeed * 419.2) * 43758.5) - 0.5) * 2.0;
     float splitRandY2 = (fract(sin(splitSeed * 531.7) * 43758.5) - 0.5) * 2.0;
     
-    float splitAmount = 0.015 * pyramidGlitchActive + 0.03 * u_clickGlitch;
+    float splitAmount = 0.008 * pyramidGlitchActive + 0.015 * u_clickGlitch;
     vec2 rOffset = vec2(splitRandX, splitRandY) * splitAmount;
     vec2 bOffset = vec2(splitRandX2, splitRandY2) * splitAmount;
     
