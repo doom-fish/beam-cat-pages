@@ -496,7 +496,6 @@ function handleInteraction(e, triggerGlitch) {
     }
     
     if (!audioStarted) {
-        audioStarted = true;  // Set BEFORE init to prevent re-entry
         initAudio(e);
         setTimeout(() => {
             changeChordAndOctave(x, y);
