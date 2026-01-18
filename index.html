@@ -554,105 +554,77 @@ function initAudio(e) {
     gateGain.gain.value = 1;
     gateGain.connect(masterGain);
     
-    // Gate rhythm - classic trance patterns at 138 BPM
-    const bpm = 138;
-    const sixteenth = 60 / bpm / 4;
-    
+    // Gate rhythm - dynamic BPM from accelerometer
     let stepIndex = 0;
     let nextStepTime = audioCtx.currentTime;
     
     function scheduleGate() {
         if (!audioCtx) return;
         
-        // Use global pattern controlled by accelerometer
+        const sixteenth = 60 / currentBpm / 4;
         const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
         
-        // Schedule ahead for tight timing
         while (nextStepTime < audioCtx.currentTime + 0.1) {
-            const baseAccent = pattern[stepIndex % 16];
-            const accent = baseAccent * (0.7 + Math.random() * 0.5);
+            const accent = pattern[stepIndex % 16];
             
             if (accent > 0.05) {
-                gateGain.gain.setValueAtTime(Math.min(accent, 1), nextStepTime);
-                const decay = 0.3 + Math.random() * 0.3;
-                gateGain.gain.exponentialRampToValueAtTime(0.02, nextStepTime + sixteenth * decay);
+                gateGain.gain.setValueAtTime(accent, nextStepTime);
+                gateGain.gain.exponentialRampToValueAtTime(0.02, nextStepTime + sixteenth * 0.4);
             }
-            gateGain.gain.setValueAtTime(0, nextStepTime + sixteenth * 0.9);
+            gateGain.gain.setValueAtTime(0, nextStepTime + sixteenth * 0.85);
             
             stepIndex++;
             nextStepTime += sixteenth;
         }
-        setTimeout(scheduleGate, 25);
+        setTimeout(scheduleGate, 50);
     }
     scheduleGate();
     
-    // Accelerometer controls pattern selection
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission().then(response => {
-            if (response === 'granted') {
-                window.addEventListener('devicemotion', handlePatternMotion);
-            }
-        }).catch(() => {});
-    } else if (window.DeviceMotionEvent) {
-        window.addEventListener('devicemotion', handlePatternMotion);
-    }
-    
-    function handlePatternMotion(e) {
-        if (e.accelerationIncludingGravity) {
-            // Use Y tilt to select pattern (phone tilt forward/back)
-            const y = e.accelerationIncludingGravity.y || 0;
-            // Normalize -10 to 10 → 0 to patterns.length
-            const normalized = (y + 10) / 20;
-            currentPatternIndex = Math.floor(Math.max(0, Math.min(1, normalized)) * gatePatterns.length);
-        }
-    }
-    
-    // 303-style acid bass - sawtooth with resonant filter sweeps
+    // Clean bass - sine sub + saw mid
     const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
     
-    // Single 303 bass note (root only)
     const bassGain = audioCtx.createGain();
-    bassGain.gain.value = 0.25;
+    bassGain.gain.value = 0.3;
     
     const bassFilter = audioCtx.createBiquadFilter();
     bassFilter.type = 'lowpass';
-    bassFilter.frequency.value = 800;  // Start frequency
-    bassFilter.Q.value = 15;  // High resonance for squelch
+    bassFilter.frequency.value = 600;
+    bassFilter.Q.value = 4;
     bassFilter.connect(bassGain);
     bassGain.connect(gateGain);
     
+    // Sine sub for warmth
+    const subOsc = audioCtx.createOscillator();
+    subOsc.type = 'sine';
+    subOsc.frequency.value = chord[0] * 2;
+    subOsc.connect(bassFilter);
+    subOsc.start();
+    oscillators.push(subOsc);
+    chordOscillators.push(subOsc);
+    
+    // Saw for presence
     const bassOsc = audioCtx.createOscillator();
     bassOsc.type = 'sawtooth';
-    bassOsc.frequency.value = chord[0] * 4;  // Octave up for audibility
-    bassOsc.connect(bassFilter);
+    bassOsc.frequency.value = chord[0] * 4;
+    const bassOscGain = audioCtx.createGain();
+    bassOscGain.gain.value = 0.5;
+    bassOsc.connect(bassOscGain);
+    bassOscGain.connect(bassFilter);
     bassOsc.start();
     oscillators.push(bassOsc);
     chordOscillators.push(bassOsc);
     
-    // Filter sweep synced to gate
-    function sweepFilter() {
-        if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        bassFilter.frequency.cancelScheduledValues(now);
-        bassFilter.frequency.setValueAtTime(1200, now);  // Start high
-        bassFilter.frequency.exponentialRampToValueAtTime(200, now + sixteenth * 0.8);  // Sweep down
-        setTimeout(sweepFilter, sixteenth * 1000);
-    }
-    sweepFilter();
+    // Supersaw lead - 5 voices
+    const superDetunes = [-30, -10, 0, 10, 30];
+    const panValues = [-0.5, -0.2, 0, 0.2, 0.5];
     
-    // Classic trance supersaw lead - optimized 5 voice unison
-    const superDetunes = [-35, -12, 0, 12, 35];
-    
-    // Stereo pan
-    const panValues = [-0.6, -0.2, 0, 0.2, 0.6];
-    
-    // Simple delay reverb (much lighter than convolution)
+    // Simple delay
     const reverbGain = audioCtx.createGain();
-    reverbGain.gain.value = 0.25;
+    reverbGain.gain.value = 0.2;
     const delay = audioCtx.createDelay(0.5);
-    delay.delayTime.value = 0.15;
+    delay.delayTime.value = 0.12;
     const feedback = audioCtx.createGain();
-    feedback.gain.value = 0.3;
+    feedback.gain.value = 0.25;
     delay.connect(feedback);
     feedback.connect(delay);
     delay.connect(reverbGain);
