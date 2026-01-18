@@ -647,16 +647,49 @@ function initAudio(e) {
     highShelf.gain.value = 6;
     highShelf.connect(leadEnvGain);
     
-    // Slow filter LFO for movement
+    // Accelerometer-controlled filter + fallback LFO
+    let accelValue = 0.5;  // 0-1 range
+    let hasAccel = false;
     let filterLfoPhase = 0;
+    
+    // Request accelerometer permission (iOS 13+)
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(response => {
+            if (response === 'granted') {
+                hasAccel = true;
+                window.addEventListener('devicemotion', handleMotion);
+            }
+        }).catch(() => {});
+    } else if (window.DeviceMotionEvent) {
+        hasAccel = true;
+        window.addEventListener('devicemotion', handleMotion);
+    }
+    
+    function handleMotion(e) {
+        if (e.accelerationIncludingGravity) {
+            // Use X and Z tilt combined, normalize to 0-1
+            const x = e.accelerationIncludingGravity.x || 0;
+            const z = e.accelerationIncludingGravity.z || 0;
+            const tilt = Math.sqrt(x * x + z * z) / 15;  // Normalize ~0-1
+            accelValue = Math.max(0, Math.min(1, tilt));
+        }
+    }
+    
     function modulateFilters() {
         if (!audioCtx) return;
-        filterLfoPhase += 0.02;
-        const lfo = Math.sin(filterLfoPhase) * 0.3 + 0.7;  // 0.4 to 1.0
+        
+        let lfo;
+        if (hasAccel) {
+            lfo = accelValue;  // Use accelerometer
+        } else {
+            filterLfoPhase += 0.02;
+            lfo = Math.sin(filterLfoPhase) * 0.5 + 0.5;  // Fallback sine LFO
+        }
+        
         leadFilters.forEach((f, i) => {
-            f.frequency.value = (2500 + i * 400) + lfo * 2000;  // Sweep 2500-4500Hz
+            f.frequency.value = 800 + lfo * 4000;  // Sweep 800-4800Hz
         });
-        setTimeout(modulateFilters, 50);
+        setTimeout(modulateFilters, 30);
     }
     modulateFilters();
     
