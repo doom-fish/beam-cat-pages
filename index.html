@@ -485,42 +485,6 @@ function triggerClickGlitch() {
     triggerGlitchSound();
 }
 
-function changeChord(x, y) {
-    if (!audioCtx || chordOscillators.length === 0) return;
-    
-    // Select chord based on screen position (X only)
-    const chordIndex = Math.floor((x || 0.5) * minorChords.length);
-    const chord = minorChords[Math.min(chordIndex, minorChords.length - 1)];
-    const now = audioCtx.currentTime;
-    
-    // Y controls filter cutoff - top = bright, bottom = dark
-    const filterFreq = 400 + (1 - (y || 0.5)) * 4000;  // 400-4400 Hz
-    leadFilters.forEach((filter, i) => {
-        filter.frequency.setTargetAtTime(filterFreq + i * 200, now, 0.05);
-    });
-    
-    // Structure: 2 bass oscs, then 35 lead oscs (5 notes * 7 detunes)
-    const bassCount = 2;
-    const leadDetuneCount = 7;
-    
-    chordOscillators.forEach((osc, i) => {
-        let targetFreq;
-        if (i < bassCount) {
-            // Bass layer - root and third
-            targetFreq = chord[i];
-        } else {
-            // Lead layer
-            const leadIndex = i - bassCount;
-            const noteIndex = Math.floor(leadIndex / leadDetuneCount) % 5;
-            targetFreq = chord[noteIndex] * 4;
-        }
-        // Smooth glide using exponentialRampToValueAtTime
-        osc.frequency.cancelScheduledValues(now);
-        osc.frequency.setValueAtTime(osc.frequency.value, now);
-        osc.frequency.exponentialRampToValueAtTime(targetFreq, now + 0.15);
-    });
-}
-
 function handleInteraction(e, triggerGlitch) {
     let x = 0.5, y = 0.5;
     if (e.touches && e.touches[0]) {
@@ -533,13 +497,12 @@ function handleInteraction(e, triggerGlitch) {
     
     if (!audioStarted) {
         initAudio(e);
-        // After init, change chord based on position
         setTimeout(() => {
-            changeChord(x, y);
+            changeChordAndOctave(x, y);
             if (triggerGlitch) triggerClickGlitch();
         }, 50);
     } else {
-        changeChord(x, y);
+        changeChordAndOctave(x, y);
         if (triggerGlitch) {
             triggerClickGlitch();
         }
@@ -650,27 +613,43 @@ function triggerGlitchSound() {
 }
 
 let lastChordIndex = -1;
-let lastFilterIndex = -1;
+let lastOctaveIndex = -1;
 
-const filterSteps = [300, 800, 1500, 3000, 6000];  // 5 filter zones
+const octaveMultipliers = [0.5, 1, 2, 4, 8];  // 5 octave zones
 
-function updateFilter(y) {
-    if (!audioCtx || leadFilters.length === 0) return;
+function updateOctave(y) {
+    const octaveIndex = Math.floor(y * octaveMultipliers.length);
+    if (octaveIndex === lastOctaveIndex) return false;
+    lastOctaveIndex = octaveIndex;
+    return true;
+}
+
+function changeChordAndOctave(x, y) {
+    if (!audioCtx || chordOscillators.length === 0) return;
     
-    const filterIndex = Math.floor(y * filterSteps.length);
-    if (filterIndex === lastFilterIndex) return;
-    lastFilterIndex = filterIndex;
+    const chordIndex = Math.floor((x || 0.5) * minorChords.length);
+    const chord = minorChords[Math.min(chordIndex, minorChords.length - 1)];
+    
+    const octaveIndex = Math.floor((y || 0.5) * octaveMultipliers.length);
+    const octaveMult = octaveMultipliers[Math.min(octaveIndex, octaveMultipliers.length - 1)];
     
     const now = audioCtx.currentTime;
-    const filterFreq = filterSteps[Math.min(filterIndex, filterSteps.length - 1)];
-    const resonance = 2 + (filterIndex === 2 ? 4 : 0);  // Extra resonance in middle
+    const bassCount = 2;
+    const leadDetuneCount = 7;
     
-    leadFilters.forEach((filter, i) => {
-        filter.frequency.setTargetAtTime(filterFreq + i * 100, now, 0.08);
-        filter.Q.setTargetAtTime(resonance, now, 0.08);
+    chordOscillators.forEach((osc, i) => {
+        let targetFreq;
+        if (i < bassCount) {
+            targetFreq = chord[i] * octaveMult;
+        } else {
+            const leadIndex = i - bassCount;
+            const noteIndex = Math.floor(leadIndex / leadDetuneCount) % 5;
+            targetFreq = chord[noteIndex] * 4 * octaveMult;
+        }
+        osc.frequency.cancelScheduledValues(now);
+        osc.frequency.setValueAtTime(osc.frequency.value, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(targetFreq, 20), now + 0.1);
     });
-    
-    return true;  // Changed
 }
 
 // Start audio on user interaction
@@ -684,18 +663,14 @@ document.addEventListener('touchmove', (e) => {
         y = e.touches[0].clientY / window.innerHeight;
     }
     
-    // Update filter based on Y zone
-    const filterChanged = updateFilter(y);
-    
-    // Check chord zone change
     const newChordIndex = Math.floor(x * minorChords.length);
     const chordChanged = newChordIndex !== lastChordIndex;
+    const octaveChanged = updateOctave(y);
     
-    if (chordChanged) {
-        lastChordIndex = newChordIndex;
-        handleInteraction(e, true);
-    } else if (filterChanged) {
-        triggerClickGlitch();  // Glitch on filter zone change too
+    if (chordChanged || octaveChanged) {
+        if (chordChanged) lastChordIndex = newChordIndex;
+        changeChordAndOctave(x, y);
+        triggerClickGlitch();
     }
 }, { passive: false });
 
