@@ -603,18 +603,27 @@ function initAudio(e) {
     bassOsc.start();
     oscillators.push(bassOsc);
     
-    // Chord voices - 3 square waves (SID has 3 voices)
+    // Chord voices - 2 squares + 1 triangle with separate gain for pattern
     const chordGain = audioCtx.createGain();
-    chordGain.gain.value = 0.08;  // Slightly quieter chords
+    chordGain.gain.value = 0.08;
     chordGain.connect(masterGain);
     chordGain.connect(delay);
+    
+    const triangleGain = audioCtx.createGain();
+    triangleGain.gain.value = 0;  // Controlled by pattern
+    triangleGain.connect(masterGain);
+    triangleGain.connect(delay);
     
     const chordOscs = [];
     for (let i = 0; i < 3; i++) {
         const osc = audioCtx.createOscillator();
-        osc.type = i === 2 ? 'triangle' : 'square';  // Mix square + triangle
-        osc.frequency.value = chord[i];  // One octave down (was *2)
-        osc.connect(chordGain);
+        osc.type = i === 2 ? 'triangle' : 'square';
+        osc.frequency.value = chord[i];
+        if (i === 2) {
+            osc.connect(triangleGain);  // Triangle has separate gain
+        } else {
+            osc.connect(chordGain);
+        }
         osc.start();
         oscillators.push(osc);
         chordOscs.push(osc);
@@ -695,6 +704,17 @@ function initAudio(e) {
             // Update chord frequencies - one octave down
             for (let i = 0; i < 3; i++) {
                 chordOscs[i].frequency.setValueAtTime(progChord[i] * octave, arpTime);
+            }
+            
+            // Triangle pattern - offbeat stabs
+            const triPattern = [0, 0.8, 0, 0.5, 0, 0.9, 0, 0.4, 0, 0.7, 0, 0.6, 0, 0.8, 0, 0.3];
+            const triAccent = triPattern[step];
+            if (triAccent > 0.5) {
+                triangleGain.gain.setValueAtTime(0.1, arpTime);
+                triangleGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.6);
+            } else if (triAccent > 0.2) {
+                triangleGain.gain.setValueAtTime(0.05, arpTime);
+                triangleGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.4);
             }
             
             // Bass pattern - 8th note pulse with octave jumps
