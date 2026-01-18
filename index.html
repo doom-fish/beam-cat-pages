@@ -623,7 +623,7 @@ function initAudio(e) {
     let arpIndex = 0;
     let arpTime = audioCtx.currentTime;
     
-    // C64 SID style - sawtooth waves with filter (more authentic than square)
+    // Raw C64 SID style - pure waveforms, no filter
     const tranceProgression = [
         [146.83, 174.61, 220.00],  // D minor
         [130.81, 164.81, 196.00],  // C major
@@ -635,42 +635,36 @@ function initAudio(e) {
     window.jamState = {
         progIndex: 0,      // X controls chord in progression
         octaveShift: 1,    // Y controls octave (0.5, 1, 2)
-        filterCutoff: 2000 // Touch modulates filter
     };
     
-    // SID-style filter for that classic C64 sound
-    const sidFilter = audioCtx.createBiquadFilter();
-    sidFilter.type = 'lowpass';
-    sidFilter.frequency.value = 2000;
-    sidFilter.Q.value = 8;  // Resonance!
-    sidFilter.connect(masterGain);
-    
-    // Bass - sawtooth through filter (SID style)
+    // Bass - pulse wave (SID's classic sound)
     const bassOsc = audioCtx.createOscillator();
-    bassOsc.type = 'sawtooth';
+    bassOsc.type = 'sawtooth';  // SID sawtooth
     bassOsc.frequency.value = chord[0];
     const bassGain = audioCtx.createGain();
-    bassGain.gain.value = 0.05;
+    bassGain.gain.value = 0.04;
     bassOsc.connect(bassGain);
-    bassGain.connect(sidFilter);
+    bassGain.connect(masterGain);
     bassOsc.start();
     oscillators.push(bassOsc);
     
-    // Chord voices - all sawtooth for that rich SID sound
+    // Chord voices - mixed waveforms like real SID
     const chordGain = audioCtx.createGain();
-    chordGain.gain.value = 0.06;
-    chordGain.connect(sidFilter);
+    chordGain.gain.value = 0.05;
+    chordGain.connect(masterGain);
     chordGain.connect(delay);
     
     const triangleGain = audioCtx.createGain();
     triangleGain.gain.value = 0;  // Controlled by pattern
-    triangleGain.connect(sidFilter);
+    triangleGain.connect(masterGain);
     triangleGain.connect(delay);
     
     const chordOscs = [];
+    // SID has 3 voices: use pulse/saw/triangle mix
+    const sidWaveforms = ['sawtooth', 'square', 'triangle'];
     for (let i = 0; i < 3; i++) {
         const osc = audioCtx.createOscillator();
-        osc.type = 'sawtooth';  // All sawtooth for SID
+        osc.type = sidWaveforms[i];  // Mixed waveforms like SID
         osc.frequency.value = chord[i];
         if (i === 2) {
             osc.connect(triangleGain);
@@ -682,52 +676,42 @@ function initAudio(e) {
         chordOscs.push(osc);
     }
     
-    // Lead - sawtooth with slight detune for fat SID lead
+    // Lead - sawtooth (SID's bright lead sound)
     const leadOsc = audioCtx.createOscillator();
     leadOsc.type = 'sawtooth';
     leadOsc.frequency.value = chord[0] * 2;
     const leadGain = audioCtx.createGain();
     leadGain.gain.value = 0;
     leadOsc.connect(leadGain);
-    leadGain.connect(sidFilter);
+    leadGain.connect(masterGain);
     leadGain.connect(delay);
     leadOsc.start();
     oscillators.push(leadOsc);
     
-    // Second lead - slightly detuned for fat unison
+    // Second lead - pulse wave slightly detuned
     const leadOsc2 = audioCtx.createOscillator();
-    leadOsc2.type = 'sawtooth';
-    leadOsc2.frequency.value = chord[0] * 2 * 1.003;  // Slight detune
+    leadOsc2.type = 'square';  // Pulse
+    leadOsc2.frequency.value = chord[0] * 2 * 1.002;
     const leadGain2 = audioCtx.createGain();
     leadGain2.gain.value = 0;
     leadOsc2.connect(leadGain2);
-    leadGain2.connect(sidFilter);
+    leadGain2.connect(masterGain);
     leadOsc2.start();
     oscillators.push(leadOsc2);
     
-    // Sub bass - triangle for deep low end
+    // Sub bass - triangle (SID triangle is very pure)
     const subOsc = audioCtx.createOscillator();
     subOsc.type = 'triangle';
     subOsc.frequency.value = chord[0] / 2;
     const subGain = audioCtx.createGain();
-    subGain.gain.value = 0.07;
+    subGain.gain.value = 0.06;
     subOsc.connect(subGain);
-    subGain.connect(masterGain);  // Sub bypasses filter
+    subGain.connect(masterGain);
     subOsc.start();
     oscillators.push(subOsc);
     
-    // Filter LFO for that classic SID wobble
-    const filterLfo = audioCtx.createOscillator();
-    filterLfo.type = 'triangle';
-    filterLfo.frequency.value = 0.3;  // Slow sweep
-    const filterLfoGain = audioCtx.createGain();
-    filterLfoGain.gain.value = 800;  // Modulation depth
-    filterLfo.connect(filterLfoGain);
-    filterLfoGain.connect(sidFilter.frequency);
-    filterLfo.start();
-    
     // 8-bit drums
-    // Kick - triangle wave with pitch envelope (softer C64 kick)
+    // Kick - triangle wave with pitch envelope (SID style)
     const kickOsc = audioCtx.createOscillator();
     kickOsc.type = 'triangle';
     kickOsc.frequency.value = 40;
@@ -1162,13 +1146,17 @@ function render() {
     if (smoothTouching < 0.01) smoothTouching = 0;
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_touching'), smoothTouching);
     
-    // Only update touch position while touching - keep last position on release
-    // u_touching fades the tilt angle, so pyramid smoothly returns to up
+    // When touching: lerp smoothTouchPos toward finger
+    // When NOT touching: lerp smoothTouchPos toward CENTER (0.5, 0.5)
+    // This makes the tilt direction itself fade to center, combined with u_touching fading
     if (isTouching) {
         smoothTouchPos.x += (touchPos.x - smoothTouchPos.x) * 0.1;
         smoothTouchPos.y += (touchPos.y - smoothTouchPos.y) * 0.1;
+    } else {
+        // Lerp toward center so tilt direction fades
+        smoothTouchPos.x += (0.5 - smoothTouchPos.x) * 0.08;
+        smoothTouchPos.y += (0.5 - smoothTouchPos.y) * 0.08;
     }
-    // When not touching, keep last position - tilt fades via u_touching
     gl.uniform2f(gl.getUniformLocation(octaProg, 'u_touch'), smoothTouchPos.x, smoothTouchPos.y);
     
     gl.lineWidth(2);
