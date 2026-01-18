@@ -58,16 +58,27 @@ attribute vec3 a_pos;
 uniform float u_time;
 uniform float u_aspect;
 uniform float u_scale;
+uniform vec2 u_touch;  // Touch/mouse position (0-1)
 
 void main() {
     float t = u_time;
-    float rotY = t * 0.15;
+    // Base rotation + touch offset
+    float rotY = t * 0.15 + (u_touch.x - 0.5) * 0.8;
+    float rotX = (u_touch.y - 0.5) * 0.3;  // Slight tilt based on Y
+    
     float cy = cos(rotY), sy = sin(rotY);
+    float cx = cos(rotX), sx = sin(rotX);
     vec3 p = a_pos * u_scale * 2.5;
     
+    // Y rotation
     float x = p.x * cy - p.z * sy;
     float z = p.x * sy + p.z * cy;
     p.x = x; p.z = z;
+    
+    // X rotation (tilt)
+    float y = p.y * cx - p.z * sx;
+    z = p.y * sx + p.z * cx;
+    p.y = y; p.z = z;
     
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
@@ -478,6 +489,8 @@ let glitchMode = 0;  // 0-3 based on grid position
 let currentPatternIndex = 0;
 let currentBpm = 140;
 let currentOctave = 4;  // Touch Y controls octave (2, 4, 8)
+let touchPos = { x: 0.5, y: 0.5 };  // Current touch/mouse position
+let isTouching = false;
 
 // Gate patterns - global for accelerometer access
 const gatePatterns = [
@@ -514,6 +527,11 @@ function handleInteraction(e, triggerGlitch) {
         x = e.clientX / window.innerWidth;
         y = e.clientY / window.innerHeight;
     }
+    
+    // Update touch position for pyramid rotation
+    touchPos.x = x;
+    touchPos.y = y;
+    isTouching = true;
     
     // Grid position determines effects (4x4 grid = 16 cells)
     const gridX = Math.floor(x * 4);
@@ -812,7 +830,27 @@ function changeChord(chordIndex) {
 document.addEventListener('click', (e) => handleInteraction(e, true));
 document.addEventListener('touchend', (e) => {
     e.preventDefault();
+    isTouching = false;  // Release
     handleInteraction(e, true);
+});
+document.addEventListener('touchstart', (e) => {
+    isTouching = true;
+    let x = e.touches[0].clientX / window.innerWidth;
+    let y = e.touches[0].clientY / window.innerHeight;
+    touchPos.x = x;
+    touchPos.y = y;
+});
+document.addEventListener('mousedown', (e) => {
+    isTouching = true;
+    touchPos.x = e.clientX / window.innerWidth;
+    touchPos.y = e.clientY / window.innerHeight;
+});
+document.addEventListener('mouseup', () => { isTouching = false; });
+document.addEventListener('mousemove', (e) => {
+    if (isTouching) {
+        touchPos.x = e.clientX / window.innerWidth;
+        touchPos.y = e.clientY / window.innerHeight;
+    }
 });
 document.addEventListener('touchmove', (e) => {
     e.preventDefault();
@@ -821,6 +859,10 @@ document.addEventListener('touchmove', (e) => {
         x = e.touches[0].clientX / window.innerWidth;
         y = e.touches[0].clientY / window.innerHeight;
     }
+    
+    // Update touch position for pyramid
+    touchPos.x = x;
+    touchPos.y = y;
     
     // 4x4 grid glitch on cell change
     const gridX = Math.floor(x * 4);
@@ -899,6 +941,10 @@ function render() {
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_aspect'), aspect);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_scale'), scale);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_flicker'), flicker);
+    // Smooth touch position for pyramid rotation
+    const smoothX = isTouching ? touchPos.x : 0.5;
+    const smoothY = isTouching ? touchPos.y : 0.5;
+    gl.uniform2f(gl.getUniformLocation(octaProg, 'u_touch'), smoothX, smoothY);
     gl.lineWidth(2);
     gl.drawArrays(gl.LINES, 0, pyramidVertices.length / 3);
     
