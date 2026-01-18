@@ -675,9 +675,9 @@ function initAudio(e) {
         chordOscs.push(osc);
     }
     
-    // Lead - sawtooth for richer 8-bit sound
+    // Lead - pure square wave for true 8-bit Atari/C64 sound
     const leadOsc = audioCtx.createOscillator();
-    leadOsc.type = 'sawtooth';
+    leadOsc.type = 'square';
     leadOsc.frequency.value = chord[0] * 2;
     const leadGain = audioCtx.createGain();
     leadGain.gain.value = 0;
@@ -687,10 +687,10 @@ function initAudio(e) {
     leadOsc.start();
     oscillators.push(leadOsc);
     
-    // Second lead voice - detuned saw for thickness
+    // Second lead voice - square one octave up for chiptune feel
     const leadOsc2 = audioCtx.createOscillator();
-    leadOsc2.type = 'sawtooth';
-    leadOsc2.frequency.value = chord[0] * 2 * 1.005;  // Slight detune
+    leadOsc2.type = 'square';
+    leadOsc2.frequency.value = chord[0] * 4;  // Octave up
     const leadGain2 = audioCtx.createGain();
     leadGain2.gain.value = 0;
     leadOsc2.connect(leadGain2);
@@ -698,12 +698,12 @@ function initAudio(e) {
     leadOsc2.start();
     oscillators.push(leadOsc2);
     
-    // Sub bass - sine for punch
+    // Sub bass - triangle for warm 8-bit bass
     const subOsc = audioCtx.createOscillator();
-    subOsc.type = 'sine';
+    subOsc.type = 'triangle';
     subOsc.frequency.value = chord[0] / 2;  // One octave below bass
     const subGain = audioCtx.createGain();
-    subGain.gain.value = 0.06;
+    subGain.gain.value = 0.08;
     subOsc.connect(subGain);
     subGain.connect(masterGain);
     subOsc.start();
@@ -755,15 +755,20 @@ function initAudio(e) {
     hatGain.connect(masterGain);
     hatNoise.start();
     
-    // 8-bit arpeggiator with touch control
+    // 8-bit arpeggiator with touch control and swing
     function scheduleArp() {
         if (!audioCtx) return;
         
-        const speed = 60 / currentBpm / 4;
+        const baseSpeed = 60 / currentBpm / 4;
         
         while (arpTime < audioCtx.currentTime + 0.1) {
             const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
             const step = arpIndex % 16;
+            
+            // Swing: delay odd steps for groove (shuffle feel)
+            const swingAmount = 0.33;  // 33% swing
+            const swing = (step % 2 === 1) ? baseSpeed * swingAmount : 0;
+            const speed = baseSpeed;
             
             // Use touch-controlled chord from progression
             const progChord = tranceProgression[window.jamState.progIndex % 4];
@@ -771,7 +776,7 @@ function initAudio(e) {
             
             // Update chord frequencies - one octave down
             for (let i = 0; i < 3; i++) {
-                chordOscs[i].frequency.setValueAtTime(progChord[i] * octave, arpTime);
+                chordOscs[i].frequency.setValueAtTime(progChord[i] * octave, arpTime + swing);
             }
             
             // Chord gate pattern - use pattern based on grid position
@@ -802,36 +807,39 @@ function initAudio(e) {
             const bassPattern = [1, 0, 0.7, 0, 1, 0.5, 0, 0.8, 1, 0, 0.6, 0, 1, 0, 0.7, 0.5];
             const bassAccent = bassPattern[step];
             if (bassAccent > 0.5) {
-                bassGain.gain.setValueAtTime(0.05, arpTime);
-                bassGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.8);
+                bassGain.gain.setValueAtTime(0.05, arpTime + swing);
+                bassGain.gain.exponentialRampToValueAtTime(0.01, arpTime + swing + speed * 0.8);
             } else if (bassAccent > 0.3) {
-                bassGain.gain.setValueAtTime(0.03, arpTime);
-                bassGain.gain.exponentialRampToValueAtTime(0.005, arpTime + speed * 0.5);
+                bassGain.gain.setValueAtTime(0.03, arpTime + swing);
+                bassGain.gain.exponentialRampToValueAtTime(0.005, arpTime + swing + speed * 0.5);
             } else {
-                bassGain.gain.setValueAtTime(0.005, arpTime);
+                bassGain.gain.setValueAtTime(0.005, arpTime + swing);
             }
             
-            // Arp pattern on lead (dual saw voices)
-            // Different arp patterns based on grid position
-            const arpPatternIdx = currentPatternIndex % 6;
+            // Groovy 8-bit arp patterns with more character
+            const arpPatternIdx = currentPatternIndex % 8;
             const arpPatterns = [
-                [0, 1, 2, 1],           // Up-down
-                [0, 2, 1, 2],           // Skip up
-                [2, 1, 0, 1],           // Down-up
-                [0, 0, 1, 2],           // Root-root-up
-                [0, 2, 0, 1],           // Root-fifth-root-third
-                [2, 2, 1, 0],           // High-high-down
+                [0, 2, 1, 2, 0, 1, 2, 1],  // Classic bounce
+                [0, 0, 2, 0, 1, 0, 2, 1],  // Stutter groove
+                [2, 1, 2, 0, 2, 1, 0, 1],  // Descending wave
+                [0, 1, 0, 2, 1, 0, 2, 0],  // Call response
+                [0, 2, 0, 2, 1, 2, 1, 0],  // Funk bounce
+                [2, 0, 1, 0, 2, 0, 1, 2],  // Jump around
+                [0, 1, 2, 0, 1, 2, 0, 1],  // Ascending roll
+                [1, 0, 2, 1, 0, 2, 1, 2],  // Middle focus
             ];
             const octavePatterns = [
-                [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1],  // Alternating
-                [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],  // Half bar
-                [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],  // Every other
-                [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],  // Build up
-                [1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1],  // Syncopated
-                [0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0],  // Shuffle
+                [0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1],  // Groove 1
+                [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1],  // Groove 2
+                [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0],  // Synth wave
+                [0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0],  // Shuffle
+                [0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0],  // Double up
+                [1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1],  // Random feel
+                [0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0],  // Build groove
+                [1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1],  // Accent high
             ];
             
-            const noteIdx = arpPatterns[arpPatternIdx][step % 4];
+            const noteIdx = arpPatterns[arpPatternIdx][step % 8];
             const arpOctave = octavePatterns[arpPatternIdx][step];
             const accent = pattern[step];
             
@@ -839,24 +847,25 @@ function initAudio(e) {
             leadIntensity = accent;
             
             const leadFreq = progChord[noteIdx] * 2 * octave * (arpOctave ? 2 : 1);
+            const noteTime = arpTime + swing;  // Apply swing timing
             if (accent > 0.5) {
-                leadOsc.frequency.setValueAtTime(leadFreq, arpTime);
-                leadOsc2.frequency.setValueAtTime(leadFreq * 1.005, arpTime);  // Detuned
-                leadGain.gain.setValueAtTime(0.15, arpTime);
-                leadGain2.gain.setValueAtTime(0.1, arpTime);
-                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.6);
-                leadGain2.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.6);
+                leadOsc.frequency.setValueAtTime(leadFreq, noteTime);
+                leadOsc2.frequency.setValueAtTime(leadFreq * 2, noteTime);  // Octave up for 8-bit
+                leadGain.gain.setValueAtTime(0.12, noteTime);
+                leadGain2.gain.setValueAtTime(0.06, noteTime);
+                leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.5);
+                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.4);
             } else if (accent > 0.2) {
-                leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave, arpTime);
-                leadOsc2.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave * 1.005, arpTime);
-                leadGain.gain.setValueAtTime(0.08, arpTime);
-                leadGain2.gain.setValueAtTime(0.05, arpTime);
-                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.4);
-                leadGain2.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.4);
+                leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave, noteTime);
+                leadOsc2.frequency.setValueAtTime(progChord[noteIdx] * 4 * octave, noteTime);
+                leadGain.gain.setValueAtTime(0.06, noteTime);
+                leadGain2.gain.setValueAtTime(0.03, noteTime);
+                leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.3);
+                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.25);
             }
             
-            // Sub bass follows root
-            subOsc.frequency.setValueAtTime(progChord[0] / 2 * octave, arpTime);
+            // Sub bass follows root with swing
+            subOsc.frequency.setValueAtTime(progChord[0] / 2 * octave, noteTime);
             
             // 8-bit drums - kick on 1 and 9, snare on 5 and 13, hats on others
             // Drums come in after 32 steps (2 bars)
