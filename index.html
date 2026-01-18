@@ -69,12 +69,12 @@ void main() {
     vec2 proj = p.xy / d;
     proj.x /= u_aspect;
     
-    // Glitch offset every 2-4 seconds
-    float glitchSeed = floor(t * 0.35);
+    // Glitch offset every 1-2 seconds
+    float glitchSeed = floor(t * 0.7);
     float glitchRand = fract(sin(glitchSeed * 127.1) * 43758.5);
-    float glitchPhase = fract(t * 0.35);
-    float glitchActive = step(0.88, glitchPhase);
-    float offsetX = (fract(sin(floor(t * 15.0) * 91.2) * 43758.5) - 0.5) * 0.08 * glitchActive;
+    float glitchPhase = fract(t * 0.7);
+    float glitchActive = step(0.85, glitchPhase);
+    float offsetX = (fract(sin(floor(t * 20.0) * 91.2) * 43758.5) - 0.5) * 0.06 * glitchActive;
     proj.x += offsetX;
     
     gl_Position = vec4(proj, 0.0, 1.0);
