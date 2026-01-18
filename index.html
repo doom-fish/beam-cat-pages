@@ -359,12 +359,17 @@ void main() {
         float phase = fract((u_time + seed * 20.0) / lifetime);
         float fade = smoothstep(0.0, 0.1, phase) * smoothstep(1.0, 0.5, phase);
         
-        // Start around logo area
+        // Time-varying random seed for spawn position - changes each cycle
+        float cycleIndex = floor((u_time + seed * 20.0) / lifetime);
+        float cycleSeed1 = fract(sin((i + cycleIndex) * 127.1 + cycleIndex * 311.7) * 43758.5);
+        float cycleSeed2 = fract(sin((i + cycleIndex) * 269.5 + cycleIndex * 571.3) * 43758.5);
+        
+        // Start around logo area with new random position each cycle
         float logoScale = 0.35;
         float logoHeight = logoScale / u_logoAspect;
         vec2 spawnPos = vec2(
-            particleOrigin.x + (seed - 0.5) * logoScale * 1.1 / u_aspect,
-            particleOrigin.y + (seed2 - 0.5) * logoHeight * 1.0
+            particleOrigin.x + (cycleSeed1 - 0.5) * logoScale * 1.1 / u_aspect,
+            particleOrigin.y + (cycleSeed2 - 0.5) * logoHeight * 1.0
         );
         
         // Donut ring - all particles at same radius, evenly spaced
