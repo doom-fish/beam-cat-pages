@@ -179,11 +179,11 @@ void main() {
     float logoScale = 0.3;
     float logoHeight = logoScale / u_logoAspect;
     
-    float timeSeed = floor(u_time * 0.25);
+    float timeSeed = floor(u_time * 0.15);
     float intervalRand = fract(sin(timeSeed * 127.1) * 43758.5);
-    float interval = 3.0 + intervalRand * 4.0;
+    float interval = 5.0 + intervalRand * 6.0;
     float flickerPhase = mod(u_time, interval);
-    float flickerDuration = 0.15 + intervalRand * 0.2;
+    float flickerDuration = 0.12 + intervalRand * 0.15;
     float flickerActive = step(interval - flickerDuration, flickerPhase);
     
     float jitterSeed = floor(u_time * 30.0);
@@ -455,11 +455,11 @@ function render() {
     const scale = 0.55 + 0.03 * Math.cos(t);
     
     // Check for glitch timing (sync with shader logic)
-    const timeSeed = Math.floor(t * 0.25);
+    const timeSeed = Math.floor(t * 0.15);
     const intervalRand = (Math.sin(timeSeed * 127.1) * 43758.5) % 1;
-    const interval = 3.0 + Math.abs(intervalRand) * 4.0;
+    const interval = 5.0 + Math.abs(intervalRand) * 6.0;
     const flickerPhase = t % interval;
-    const flickerDuration = 0.15 + Math.abs(intervalRand) * 0.2;
+    const flickerDuration = 0.12 + Math.abs(intervalRand) * 0.15;
     const glitchActive = flickerPhase > (interval - flickerDuration);
     
     if (glitchActive && !lastGlitchState) {
