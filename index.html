@@ -516,26 +516,17 @@ function handleInteraction(e, triggerGlitch) {
     const octaveIdx = Math.floor(y * octaves.length);
     currentOctave = octaves[Math.min(octaveIdx, octaves.length - 1)];
     
-    if (!audioStarted) {
+    if (!audioCtx) {
         initAudio(e);
-        setTimeout(() => {
-            changeChord(chordIndex);
-            if (triggerGlitch) triggerClickGlitch();
-        }, 50);
-    } else {
-        changeChord(chordIndex);
-        if (triggerGlitch) {
-            triggerClickGlitch();
-        }
     }
+    
+    changeChord(chordIndex);
+    if (triggerGlitch) triggerClickGlitch();
 }
 
 function initAudio(e) {
-    if (audioStarted) return;
-    audioStarted = true;
-    
     const hint = document.getElementById('sound-hint');
-    if (hint) hint.style.opacity = '0';
+    if (hint) hint.textContent = 'Starting audio...';
     
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AudioContext();
@@ -640,6 +631,12 @@ function initAudio(e) {
         setTimeout(scheduleArp, 40);
     }
     scheduleArp();
+    
+    // Show that audio started
+    if (hint) {
+        hint.textContent = 'Audio playing';
+        setTimeout(() => { hint.style.opacity = '0'; }, 1000);
+    }
 }
 
 function triggerGlitchSound() {}
