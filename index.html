@@ -537,18 +537,29 @@ function initAudio(e) {
     gateGain.gain.value = 1;
     gateGain.connect(masterGain);
     
-    // Gate rhythm - 16th notes at 128 BPM with syncopation
-    const bpm = 128;
+    // Gate rhythm - classic trance patterns at 138 BPM
+    const bpm = 138;
     const sixteenth = 60 / bpm / 4;
     
-    // Base patterns - will randomize between cycles
+    // Classic trance gate patterns (16 steps = 1 bar)
+    // Inspired by Tiesto, Armin, PVD style gates
     const patterns = [
-        [1, 0.3, 0.6, 0.3, 1, 0, 0.8, 0.4, 1, 0.3, 0.6, 0.5, 1, 0.4, 0.7, 0],
-        [1, 0, 0.7, 0.5, 1, 0.3, 0.5, 0, 1, 0.4, 0.8, 0.3, 1, 0, 0.6, 0.4],
-        [1, 0.4, 0.5, 0, 1, 0.5, 0.7, 0.3, 1, 0, 0.6, 0.4, 1, 0.3, 0.8, 0],
+        // Classic offbeat trance - "1-and-2-and" feel
+        [1, 0, 0.8, 0, 1, 0, 0.8, 0, 1, 0, 0.8, 0, 1, 0, 0.8, 0],
+        // Pumping 4-on-floor with ghost notes
+        [1, 0.2, 0.5, 0.2, 1, 0.2, 0.5, 0.2, 1, 0.2, 0.5, 0.2, 1, 0.2, 0.5, 0.2],
+        // Syncopated uplifting pattern
+        [1, 0, 0.7, 0.3, 0.9, 0, 0.6, 0, 1, 0, 0.7, 0.4, 0.9, 0, 0.8, 0],
+        // Driving 8th notes
+        [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+        // Breakdown tension builder
+        [1, 0.4, 0.6, 0.4, 0.8, 0.4, 0.6, 0.4, 1, 0.5, 0.7, 0.5, 0.9, 0.5, 0.7, 0.5],
+        // Offbeat emphasis (Dutch style)
+        [0.6, 0, 1, 0, 0.6, 0, 1, 0, 0.6, 0, 1, 0, 0.6, 0, 1, 0],
     ];
     let pattern = patterns[0];
     let stepIndex = 0;
+    let barCount = 0;
     let nextStepTime = audioCtx.currentTime;
     
     function scheduleGate() {
@@ -556,24 +567,30 @@ function initAudio(e) {
         
         // Schedule ahead for tight timing
         while (nextStepTime < audioCtx.currentTime + 0.1) {
-            const accent = pattern[stepIndex % 16] * (0.85 + Math.random() * 0.3);  // Slight random variation
+            const baseAccent = pattern[stepIndex % 16];
+            const accent = baseAccent * (0.9 + Math.random() * 0.2);  // Subtle humanize
             
-            if (accent > 0.1) {
+            if (accent > 0.05) {
                 gateGain.gain.setValueAtTime(Math.min(accent, 1), nextStepTime);
-                gateGain.gain.exponentialRampToValueAtTime(0.05, nextStepTime + sixteenth * 0.6);
+                // Tighter decay for punchy trance feel
+                gateGain.gain.exponentialRampToValueAtTime(0.02, nextStepTime + sixteenth * 0.5);
             }
-            gateGain.gain.setValueAtTime(0, nextStepTime + sixteenth * 0.9);
+            gateGain.gain.setValueAtTime(0, nextStepTime + sixteenth * 0.85);
             
             stepIndex++;
             
-            // Random pattern change every cycle
+            // Change pattern every 2-4 bars for variation
             if (stepIndex % 16 === 0) {
-                pattern = patterns[Math.floor(Math.random() * patterns.length)];
+                barCount++;
+                if (barCount >= 2 + Math.floor(Math.random() * 3)) {
+                    pattern = patterns[Math.floor(Math.random() * patterns.length)];
+                    barCount = 0;
+                }
             }
             
             nextStepTime += sixteenth;
         }
-        setTimeout(scheduleGate, 50);  // Check every 50ms
+        setTimeout(scheduleGate, 25);  // Tighter scheduling
     }
     scheduleGate();
     
