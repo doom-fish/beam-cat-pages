@@ -470,6 +470,19 @@ let glitchGain = null;
 let noiseNode = null;
 let audioStarted = false;
 let clickGlitch = 0;
+let currentPatternIndex = 0;  // Global pattern index for accelerometer control
+
+// Gate patterns - global for accelerometer access
+const gatePatterns = [
+    [1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 0],  // Rolling triplets
+    [1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1],  // Stutter
+    [1, 0, 0.5, 1, 0, 0.8, 0, 1, 0.6, 0, 1, 0, 0.7, 1, 0, 0.5],  // Syncopated
+    [1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0],  // Galloping
+    [1, 0, 0.9, 0.3, 0, 1, 0.5, 0, 0.8, 0, 1, 0.4, 0, 0.9, 0.6, 0],  // Shuffle
+    [1, 0, 0, 0.8, 0, 0, 1, 0, 0, 0.7, 0, 1, 0, 0.6, 0, 0.9],  // Breakbeat
+    [1, 0.4, 0.6, 0.4, 1, 0.5, 0.7, 0.3, 1, 0.4, 0.8, 0.5, 1, 0.6, 0.5, 0.4],  // Driving
+    [1, 0, 0, 0, 0.7, 0, 0, 0, 1, 0, 0, 0.5, 0, 0.8, 0, 0],  // Minimal
+];
 
 // Minor chords from D minor scale - sub bass octave
 const minorChords = [
@@ -541,63 +554,54 @@ function initAudio(e) {
     const bpm = 138;
     const sixteenth = 60 / bpm / 4;
     
-    // Exciting trance gate patterns (16 steps = 1 bar)
-    const patterns = [
-        // Rolling triplet feel
-        [1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 0],
-        // Stutter build
-        [1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1],
-        // Syncopated groove
-        [1, 0, 0.5, 1, 0, 0.8, 0, 1, 0.6, 0, 1, 0, 0.7, 1, 0, 0.5],
-        // Galloping rhythm
-        [1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0],
-        // Off-grid shuffle
-        [1, 0, 0.9, 0.3, 0, 1, 0.5, 0, 0.8, 0, 1, 0.4, 0, 0.9, 0.6, 0],
-        // Breakbeat style
-        [1, 0, 0, 0.8, 0, 0, 1, 0, 0, 0.7, 0, 1, 0, 0.6, 0, 0.9],
-        // Driving 16ths with accents
-        [1, 0.4, 0.6, 0.4, 1, 0.5, 0.7, 0.3, 1, 0.4, 0.8, 0.5, 1, 0.6, 0.5, 0.4],
-        // Minimal techno
-        [1, 0, 0, 0, 0.7, 0, 0, 0, 1, 0, 0, 0.5, 0, 0.8, 0, 0],
-    ];
-    let pattern = patterns[Math.floor(Math.random() * patterns.length)];
     let stepIndex = 0;
-    let barCount = 0;
     let nextStepTime = audioCtx.currentTime;
     
     function scheduleGate() {
         if (!audioCtx) return;
         
+        // Use global pattern controlled by accelerometer
+        const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
+        
         // Schedule ahead for tight timing
         while (nextStepTime < audioCtx.currentTime + 0.1) {
             const baseAccent = pattern[stepIndex % 16];
-            // More random humanization
             const accent = baseAccent * (0.7 + Math.random() * 0.5);
             
             if (accent > 0.05) {
                 gateGain.gain.setValueAtTime(Math.min(accent, 1), nextStepTime);
-                // Varied decay for more character
                 const decay = 0.3 + Math.random() * 0.3;
                 gateGain.gain.exponentialRampToValueAtTime(0.02, nextStepTime + sixteenth * decay);
             }
             gateGain.gain.setValueAtTime(0, nextStepTime + sixteenth * 0.9);
             
             stepIndex++;
-            
-            // Change pattern every 1-2 bars for more variation
-            if (stepIndex % 16 === 0) {
-                barCount++;
-                if (barCount >= 1 + Math.floor(Math.random() * 2)) {
-                    pattern = patterns[Math.floor(Math.random() * patterns.length)];
-                    barCount = 0;
-                }
-            }
-            
             nextStepTime += sixteenth;
         }
         setTimeout(scheduleGate, 25);
     }
     scheduleGate();
+    
+    // Accelerometer controls pattern selection
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(response => {
+            if (response === 'granted') {
+                window.addEventListener('devicemotion', handlePatternMotion);
+            }
+        }).catch(() => {});
+    } else if (window.DeviceMotionEvent) {
+        window.addEventListener('devicemotion', handlePatternMotion);
+    }
+    
+    function handlePatternMotion(e) {
+        if (e.accelerationIncludingGravity) {
+            // Use Y tilt to select pattern (phone tilt forward/back)
+            const y = e.accelerationIncludingGravity.y || 0;
+            // Normalize -10 to 10 → 0 to patterns.length
+            const normalized = (y + 10) / 20;
+            currentPatternIndex = Math.floor(Math.max(0, Math.min(1, normalized)) * gatePatterns.length);
+        }
+    }
     
     // 303-style acid bass - sawtooth with resonant filter sweeps
     const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
