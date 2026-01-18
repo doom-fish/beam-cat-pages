@@ -855,14 +855,42 @@ document.addEventListener('touchstart', (e) => {
     let y = e.touches[0].clientY / window.innerHeight;
     touchPos.x = x;
     touchPos.y = y;
-    // Trigger glitch on touch down
+    
+    // Same grid controls as touchmove
+    const gridX = Math.floor(x * 4);
+    const gridY = Math.floor(y * 4);
+    if (window.jamState) {
+        window.jamState.progIndex = gridX;
+        const octaves = [2, 1.5, 1, 0.5];
+        const newOctave = octaves[gridY];
+        if (newOctave !== window.jamState.octaveShift) {
+            beatGlitch = 1.0;
+        }
+        window.jamState.octaveShift = newOctave;
+    }
+    currentBpm = 100 + x * 60;
     clickGlitch = 0.8;
 });
 document.addEventListener('mousedown', (e) => {
     isTouching = true;
-    touchPos.x = e.clientX / window.innerWidth;
-    touchPos.y = e.clientY / window.innerHeight;
-    // Trigger glitch on mouse down
+    let x = e.clientX / window.innerWidth;
+    let y = e.clientY / window.innerHeight;
+    touchPos.x = x;
+    touchPos.y = y;
+    
+    // Same grid controls as mousemove
+    const gridX = Math.floor(x * 4);
+    const gridY = Math.floor(y * 4);
+    if (window.jamState) {
+        window.jamState.progIndex = gridX;
+        const octaves = [2, 1.5, 1, 0.5];
+        const newOctave = octaves[gridY];
+        if (newOctave !== window.jamState.octaveShift) {
+            beatGlitch = 1.0;
+        }
+        window.jamState.octaveShift = newOctave;
+    }
+    currentBpm = 100 + x * 60;
     clickGlitch = 0.8;
 });
 document.addEventListener('mouseup', () => {
@@ -959,7 +987,7 @@ function render() {
     const now = performance.now() / 1000;
     const deltaTime = lastFrameTime ? (now - lastFrameTime) : 0.016;
     lastFrameTime = now;
-    const rotSpeed = 0.2 + (currentBpm - 100) / 100;  // 100 BPM = 0.2 rad/s, 160 BPM = 0.8 rad/s
+    const rotSpeed = 0.2 + (currentBpm - 100) / 40;  // 100 BPM = 0.2 rad/s, 160 BPM = 1.7 rad/s
     pyramidRotation += deltaTime * rotSpeed;
     
     // Render pyramid to FBO
