@@ -140,6 +140,7 @@ uniform sampler2D u_bg;
 uniform float u_time;
 uniform float u_aspect;
 uniform float u_logoAspect;
+uniform float u_clickGlitch;
 varying vec2 v_uv;
 
 void main() {
@@ -166,7 +167,10 @@ void main() {
     float pyramidGlitchPhase = fract(u_time * 0.2);
     float pyramidGlitchActive = step(0.92, pyramidGlitchPhase) * step(0.6, pyramidGlitchRand);
     
-    float rgbSplit = 0.012 * pyramidGlitchActive;
+    // Click triggers strong glitch
+    pyramidGlitchActive = max(pyramidGlitchActive, u_clickGlitch);
+    
+    float rgbSplit = 0.012 * pyramidGlitchActive + 0.025 * u_clickGlitch;
     vec4 origR = texture2D(u_orig, v_uv + vec2(rgbSplit, 0.0));
     vec4 origB = texture2D(u_orig, v_uv - vec2(rgbSplit, 0.0));
     vec4 blurR = texture2D(u_blur, v_uv + vec2(rgbSplit * 2.0, 0.0));
@@ -213,6 +217,12 @@ void main() {
         (fract(sin(jitterSeed * 269.5) * 43758.5) - 0.5) * 0.012
     ) * flickerActive;
     
+    // Click adds extra jitter
+    logoJitter += vec2(
+        (fract(sin(u_time * 127.1) * 43758.5) - 0.5) * 0.03,
+        (fract(sin(u_time * 269.5) * 43758.5) - 0.5) * 0.025
+    ) * u_clickGlitch;
+    
     // Subtle ambient glow pulse
     float glowPulse = 0.85 + 0.15 * sin(u_time * 1.5);
     
@@ -228,7 +238,7 @@ void main() {
     
     float glitchTime = floor(u_time * 12.0);
     float glitchRand = fract(sin(glitchTime * 43.758) * 12345.6);
-    float glitchActive = flickerActive * step(0.3, glitchRand);
+    float glitchActive = max(flickerActive * step(0.3, glitchRand), u_clickGlitch);
     
     // Mini glitches - small occasional displacement
     float miniGlitchSeed = floor(u_time * 3.0);
@@ -448,6 +458,7 @@ let chordOscillators = [];
 let glitchGain = null;
 let noiseNode = null;
 let audioStarted = false;
+let clickGlitch = 0;
 
 // Minor chords from D minor scale
 const minorChords = [
@@ -458,8 +469,15 @@ const minorChords = [
     [61.74, 73.42, 92.5, 123.47, 185],   // Bm: B1, D2, F#2, B2, F#3
 ];
 
+function triggerClickGlitch() {
+    clickGlitch = 1.0;
+    triggerGlitchSound();
+}
+
 function changeChord() {
     if (!audioCtx || chordOscillators.length === 0) return;
+    
+    triggerClickGlitch();
     
     const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
     const now = audioCtx.currentTime;
@@ -685,6 +703,11 @@ function render() {
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_time'), t);
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_aspect'), aspect);
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_logoAspect'), logoAspect);
+    gl.uniform1f(gl.getUniformLocation(compProg, 'u_clickGlitch'), clickGlitch);
+    
+    // Decay click glitch
+    clickGlitch *= 0.85;
+    if (clickGlitch < 0.01) clickGlitch = 0;
     
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     
