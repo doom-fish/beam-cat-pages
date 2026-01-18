@@ -554,8 +554,6 @@ function initAudio() {
     noiseNode.connect(glitchFilter);
     noiseNode.start();
 }
-    noiseNode.start();
-}
 
 function triggerGlitchSound() {
     if (!audioCtx || !glitchGain) return;
