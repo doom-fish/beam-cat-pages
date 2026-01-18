@@ -463,37 +463,48 @@ function initAudio() {
     const hint = document.getElementById('sound-hint');
     if (hint) hint.style.opacity = '0';
     
-    // Create audio context
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AudioContext();
     
-    // iOS silent buffer trick to unlock audio
+    // iOS unlock
     const unlock = audioCtx.createBuffer(1, 1, 22050);
     const unlockSource = audioCtx.createBufferSource();
     unlockSource.buffer = unlock;
     unlockSource.connect(audioCtx.destination);
     unlockSource.start(0);
     
-    // Resume if suspended
     if (audioCtx.state === 'suspended') {
         audioCtx.resume();
     }
     
     masterGain = audioCtx.createGain();
-    masterGain.gain.value = 1.0;
+    masterGain.gain.value = 0.4;
     masterGain.connect(audioCtx.destination);
     
-    // Simplified supersaw - 5 notes, 3 detuned oscs each
-    const chordFreqs = [73.42, 110, 146.83, 185, 220];
-    const detunes = [-8, 0, 8];
+    // Dark minor chord progression: Dm -> Am -> Em -> Bm (all minor)
+    const chordProgression = [
+        [73.42, 87.31, 110, 146.83],    // Dm: D2, F2, A2, D3
+        [55, 65.41, 82.41, 110],        // Am: A1, C2, E2, A2
+        [82.41, 98, 123.47, 164.81],    // Em: E2, G2, B2, E3
+        [61.74, 73.42, 92.5, 123.47]    // Bm: B1, D2, F#2, B2
+    ];
     
-    chordFreqs.forEach(freq => {
+    let currentChord = 0;
+    const chordOscs = [];
+    const chordGains = [];
+    
+    // Create oscillators for first chord
+    const detunes = [-6, 0, 6];
+    
+    chordProgression[0].forEach((freq, i) => {
         const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.25;
+        noteGain.gain.value = 0.08;
+        chordGains.push(noteGain);
         
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 1200;
+        filter.frequency.value = 400 + i * 100;  // Darker, muffled
+        filter.Q.value = 2;
         filter.connect(noteGain);
         noteGain.connect(masterGain);
         
@@ -504,17 +515,30 @@ function initAudio() {
             osc.detune.value = detune;
             osc.connect(filter);
             osc.start();
+            chordOscs.push({ osc, baseFreq: freq, noteIndex: i });
             oscillators.push(osc);
         });
     });
+    
+    // Slowly morph between chords
+    setInterval(() => {
+        currentChord = (currentChord + 1) % chordProgression.length;
+        const newChord = chordProgression[currentChord];
+        const now = audioCtx.currentTime;
+        
+        chordOscs.forEach(({ osc, noteIndex }) => {
+            const targetFreq = newChord[noteIndex];
+            osc.frequency.setTargetAtTime(targetFreq, now, 4);  // 4 second glide
+        });
+    }, 12000);  // Change chord every 12 seconds
     
     // Glitch noise
     glitchGain = audioCtx.createGain();
     glitchGain.gain.value = 0;
     const glitchFilter = audioCtx.createBiquadFilter();
     glitchFilter.type = 'bandpass';
-    glitchFilter.frequency.value = 2000;
-    glitchFilter.Q.value = 5;
+    glitchFilter.frequency.value = 1500;
+    glitchFilter.Q.value = 8;
     glitchFilter.connect(glitchGain);
     glitchGain.connect(masterGain);
     
@@ -528,6 +552,8 @@ function initAudio() {
     noiseNode.buffer = noiseBuffer;
     noiseNode.loop = true;
     noiseNode.connect(glitchFilter);
+    noiseNode.start();
+}
     noiseNode.start();
 }
 
