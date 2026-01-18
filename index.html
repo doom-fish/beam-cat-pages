@@ -75,15 +75,15 @@ void main() {
     // Base Y rotation (spin) - angle from JS (accumulated based on BPM)
     p = rotateAxis(p, vec3(0.0, 1.0, 0.0), u_rotation);
     
-    // Tilt toward finger using axis-angle
+    // Tilt toward finger using axis-angle (only when touching and away from center)
     vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
     float dist = length(fingerDir);
     
-    if (dist > 0.01) {
-        // Target direction: finger position + outward toward camera (only when touching)
+    // Only tilt when actively touching AND finger is away from center
+    if (u_touching > 0.1 && dist > 0.05) {
+        // Target direction: finger position + outward toward camera
         vec3 up = vec3(0.0, 1.0, 0.0);  // Resting = pointing up
-        // Only add camera tilt when actively touching
-        float cameraZ = u_touching > 0.5 ? (0.3 + dist * 0.5) : 0.1;
+        float cameraZ = 0.3 + dist * 0.5;
         vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, cameraZ));
         
         // Rotation axis perpendicular to both
@@ -93,7 +93,8 @@ void main() {
         if (axisLen > 0.001) {
             axis = normalize(axis);
             float angle = acos(clamp(dot(up, target), -1.0, 1.0));
-            p = rotateAxis(p, axis, angle);
+            // Smooth the tilt with touching state
+            p = rotateAxis(p, axis, angle * u_touching);
         }
     }
     
@@ -170,6 +171,7 @@ uniform float u_aspect;
 uniform float u_logoAspect;
 uniform float u_clickGlitch;
 uniform float u_beatGlitch;  // Synced to drum pattern
+uniform float u_leadIntensity;  // Lead pattern for logo glow
 varying vec2 v_uv;
 
 void main() {
@@ -213,7 +215,8 @@ void main() {
     vec2 uv = v_uv;
     uv.x = (uv.x - 0.5) * u_aspect + 0.5;
     float dist = length(uv - center);
-    float flicker = 0.95 + 0.05 * sin(u_time * 2.0) * sin(u_time * 3.0);
+    // Flicker synced to lead pattern
+    float flicker = 0.7 + 0.3 * u_leadIntensity;
     float ambient = exp(-dist * dist * 4.0) * 0.6 * flicker;
     ambient = clamp(ambient, 0.0, 1.0);
     vec3 ambientColor = vec3(0.08, 0.005, 0.15) * ambient;
@@ -500,6 +503,7 @@ let isTouching = false;
 let pyramidRotation = 0;  // Accumulated rotation angle
 let lastFrameTime = 0;  // For delta time
 let smoothTouching = 0;  // Smoothed touching state for camera tilt
+let leadIntensity = 0;  // Current lead pattern intensity for glow sync
 
 // Gate patterns - global for accelerometer access
 const gatePatterns = [
@@ -785,6 +789,9 @@ function initAudio(e) {
             const arpOctave = Math.floor(step / 4) % 2;
             const accent = pattern[step];
             
+            // Update lead intensity for glow sync
+            leadIntensity = accent;
+            
             if (accent > 0.5) {
                 leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave * (arpOctave ? 2 : 1), arpTime);
                 leadGain.gain.setValueAtTime(0.2, arpTime);  // Much louder lead
@@ -971,7 +978,8 @@ let lastPyramidGlitchState = false;
 function render() {
     const t = performance.now() / 1000 - startTime;
     const aspect = w / h;
-    const flicker = 0.9 + 0.1 * hash(Math.sin(t * 0.5));
+    // Flicker synced to lead pattern intensity
+    const flicker = 0.7 + 0.3 * leadIntensity;
     const scale = 0.55 + 0.03 * Math.cos(t);
     
     // Check for logo glitch timing (sync with shader)
@@ -1112,6 +1120,7 @@ function render() {
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_logoAspect'), logoAspect);
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_clickGlitch'), clickGlitch);
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_beatGlitch'), beatGlitch);
+    gl.uniform1f(gl.getUniformLocation(compProg, 'u_leadIntensity'), leadIntensity);
     
     // Decay glitches
     clickGlitch *= 0.85;
