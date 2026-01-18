@@ -170,11 +170,21 @@ void main() {
     // Click triggers strong glitch
     pyramidGlitchActive = max(pyramidGlitchActive, u_clickGlitch);
     
-    float rgbSplit = 0.012 * pyramidGlitchActive + 0.025 * u_clickGlitch;
-    vec4 origR = texture2D(u_orig, v_uv + vec2(rgbSplit, 0.0));
-    vec4 origB = texture2D(u_orig, v_uv - vec2(rgbSplit, 0.0));
-    vec4 blurR = texture2D(u_blur, v_uv + vec2(rgbSplit * 2.0, 0.0));
-    vec4 blurB = texture2D(u_blur, v_uv - vec2(rgbSplit * 2.0, 0.0));
+    // Random RGB split offsets
+    float splitSeed = floor(u_time * 15.0);
+    float splitRandX = (fract(sin(splitSeed * 127.1) * 43758.5) - 0.5) * 2.0;
+    float splitRandY = (fract(sin(splitSeed * 269.5) * 43758.5) - 0.5) * 2.0;
+    float splitRandX2 = (fract(sin(splitSeed * 419.2) * 43758.5) - 0.5) * 2.0;
+    float splitRandY2 = (fract(sin(splitSeed * 531.7) * 43758.5) - 0.5) * 2.0;
+    
+    float splitAmount = 0.015 * pyramidGlitchActive + 0.03 * u_clickGlitch;
+    vec2 rOffset = vec2(splitRandX, splitRandY) * splitAmount;
+    vec2 bOffset = vec2(splitRandX2, splitRandY2) * splitAmount;
+    
+    vec4 origR = texture2D(u_orig, v_uv + rOffset);
+    vec4 origB = texture2D(u_orig, v_uv + bOffset);
+    vec4 blurR = texture2D(u_blur, v_uv + rOffset * 2.0);
+    vec4 blurB = texture2D(u_blur, v_uv + bOffset * 2.0);
     
     vec2 center = vec2(0.5, 0.5);
     vec2 uv = v_uv;
