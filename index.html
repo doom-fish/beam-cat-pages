@@ -846,15 +846,44 @@ function initAudio(e) {
                     kickGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.15);
                 }
                 
-                if (step === 4 || step === 12) {
+                // Varied drum patterns based on current pattern
+                const drumPatternIdx = currentPatternIndex % 4;
+                const kickPatterns = [
+                    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],  // Four on floor
+                    [1,0,0,0, 0,0,1,0, 0,0,1,0, 0,0,0,0],  // Breakbeat
+                    [1,0,0,1, 0,0,1,0, 1,0,0,0, 1,0,1,0],  // Syncopated
+                    [1,0,1,0, 0,0,1,0, 1,0,0,1, 0,0,1,0],  // Busy
+                ];
+                const snarePatterns = [
+                    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],  // Backbeat
+                    [0,0,0,0, 1,0,0,1, 0,0,0,0, 1,0,1,0],  // Fills
+                    [0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,1],  // Offbeat
+                    [0,0,0,0, 1,0,0,0, 0,1,0,0, 1,0,0,0],  // Shuffle
+                ];
+                const hatPatterns = [
+                    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],  // 8ths
+                    [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],  // 16ths
+                    [1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1],  // Gallop
+                    [1,0,0,1, 1,0,0,1, 1,0,0,1, 1,0,1,0],  // Synth pop
+                ];
+                
+                if (kickPatterns[drumPatternIdx][step]) {
+                    kickOsc.frequency.setValueAtTime(150, arpTime);
+                    kickOsc.frequency.exponentialRampToValueAtTime(40, arpTime + 0.1);
+                    kickGain.gain.setValueAtTime(0.12 * drumVol, arpTime);
+                    kickGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.15);
+                }
+                
+                if (snarePatterns[drumPatternIdx][step]) {
                     // Snare - noise burst
                     snareGain.gain.setValueAtTime(0.1 * drumVol, arpTime);
                     snareGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.1);
                 }
                 
-                if (step % 2 === 0) {
-                    // Hi-hat - high freq noise
-                    hatGain.gain.setValueAtTime(0.04 * drumVol, arpTime);
+                if (hatPatterns[drumPatternIdx][step]) {
+                    // Hi-hat - high freq noise, velocity based on pattern
+                    const hatVel = (step % 4 === 0) ? 0.05 : 0.03;
+                    hatGain.gain.setValueAtTime(hatVel * drumVol, arpTime);
                     hatGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.05);
                 }
             }
