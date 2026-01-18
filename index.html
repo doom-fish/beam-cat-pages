@@ -582,12 +582,12 @@ let lastFrameTime = 0;  // For delta time
 let smoothTouching = 0;  // Smoothed touching state for camera tilt
 let leadIntensity = 0;  // Current lead pattern intensity for glow sync
 
-// Gate patterns - danceable electronic patterns
+// Gate patterns - danceable electronic patterns (variations of first)
 const gatePatterns = [
-    [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1],  // Pumping house
-    [1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0],  // Electro bounce
-    [1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1],  // Tech house groove
-    [1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1],  // Acid stab
+    [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1],  // Base pumping house
+    [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0],  // Minimal - fewer notes
+    [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1],  // More notes
+    [1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1],  // Full drive - most notes
 ];
 
 // Minor chords from D minor scale - sub bass octave
@@ -892,10 +892,10 @@ function initAudio(e) {
             // 4 arp patterns - driving trance/electro style
             const arpPatternIdx = currentPatternIndex % 4;
             const arpPatterns = [
-                [0, 0, 2, 0, 0, 2, 1, 2],  // 0: Pumping house
-                [0, 2, 0, 2, 1, 2, 0, 1],  // 1: Bouncy electro
-                [0, 1, 0, 2, 0, 1, 2, 0],  // 2: Acid wiggle
-                [2, 0, 2, 1, 0, 2, 0, 1],  // 3: Tech stab
+                [0, 0, 2, 0, 0, 2, 1, 2],  // 0: Base groove
+                [0, 0, 0, 0, 0, 2, 0, 0],  // 1: Sparse - fewer notes
+                [0, 0, 2, 0, 1, 2, 1, 2],  // 2: Medium - more notes
+                [0, 1, 2, 0, 1, 2, 1, 2],  // 3: Busy - most notes
             ];
             const octavePatterns = [
                 [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1],  // Building energy
