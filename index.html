@@ -585,8 +585,8 @@ let leadIntensity = 0;  // Current lead pattern intensity for glow sync
 // Gate patterns - danceable electronic patterns (variations of first)
 const gatePatterns = [
     [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1],  // Base pumping house
-    [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0],  // Minimal - fewer notes
-    [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1],  // More notes
+    [1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1],  // Sparse - breathing
+    [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0],  // Medium - flowing
     [1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1],  // Full drive - most notes
 ];
 
@@ -893,8 +893,8 @@ function initAudio(e) {
             const arpPatternIdx = currentPatternIndex % 4;
             const arpPatterns = [
                 [0, 0, 2, 0, 0, 2, 1, 2],  // 0: Base groove
-                [0, 0, 0, 0, 0, 2, 0, 0],  // 1: Sparse - fewer notes
-                [0, 0, 2, 0, 1, 2, 1, 2],  // 2: Medium - more notes
+                [0, 0, 2, 0, 0, 0, 1, 0],  // 1: Sparse - breathing space
+                [0, 0, 2, 1, 0, 2, 0, 2],  // 2: Medium - flowing melody
                 [0, 1, 2, 0, 1, 2, 1, 2],  // 3: Busy - most notes
             ];
             const octavePatterns = [
