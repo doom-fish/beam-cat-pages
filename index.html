@@ -465,6 +465,7 @@ let audioCtx = null;
 let masterGain = null;
 let oscillators = [];
 let chordOscillators = [];
+let leadFilters = [];
 let glitchGain = null;
 let noiseNode = null;
 let audioStarted = false;
@@ -491,6 +492,12 @@ function changeChord(x, y) {
     const chordIndex = Math.floor((x || 0.5) * minorChords.length);
     const chord = minorChords[Math.min(chordIndex, minorChords.length - 1)];
     const now = audioCtx.currentTime;
+    
+    // Y controls filter cutoff - top = bright, bottom = dark
+    const filterFreq = 400 + (1 - (y || 0.5)) * 4000;  // 400-4400 Hz
+    leadFilters.forEach((filter, i) => {
+        filter.frequency.setTargetAtTime(filterFreq + i * 200, now, 0.05);
+    });
     
     // Structure: 2 bass oscs, then 35 lead oscs (5 notes * 7 detunes)
     const bassCount = 2;
@@ -597,6 +604,7 @@ function initAudio(e) {
         filter.Q.value = 1.5;  // Slight resonance
         filter.connect(noteGain);
         noteGain.connect(masterGain);
+        leadFilters.push(filter);
         
         superDetunes.forEach(detune => {
             const osc = audioCtx.createOscillator();
@@ -643,16 +651,29 @@ function triggerGlitchSound() {
 
 let lastChordIndex = -1;
 
+function updateFilter(y) {
+    if (!audioCtx || leadFilters.length === 0) return;
+    const now = audioCtx.currentTime;
+    const filterFreq = 400 + (1 - y) * 4000;
+    leadFilters.forEach((filter, i) => {
+        filter.frequency.setTargetAtTime(filterFreq + i * 200, now, 0.05);
+    });
+}
+
 // Start audio on user interaction
 document.addEventListener('click', (e) => handleInteraction(e, true));
 document.addEventListener('touchstart', (e) => handleInteraction(e, true));
 document.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    // Get position
-    let x = 0.5;
+    let x = 0.5, y = 0.5;
     if (e.touches && e.touches[0]) {
         x = e.touches[0].clientX / window.innerWidth;
+        y = e.touches[0].clientY / window.innerHeight;
     }
+    
+    // Always update filter based on Y
+    updateFilter(y);
+    
     // Only change chord if we crossed into a new chord zone
     const newChordIndex = Math.floor(x * minorChords.length);
     if (newChordIndex !== lastChordIndex) {
