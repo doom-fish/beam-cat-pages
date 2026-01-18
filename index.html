@@ -648,8 +648,8 @@ function handleInteraction(e, triggerGlitch, setTouching = true) {
         window.jamState.swingAmount = gridY * 0.1;  // Swing on lower rows
     }
     
-    // BPM varies with X (80-120 for darker synthwave feel)
-    currentBpm = 80 + x * 40;
+    // BPM varies with X (120-145 for driving trance/electro)
+    currentBpm = 120 + x * 25;
     
     // Pattern changes with grid X
     currentPatternIndex = gridX * 2;  // 8 patterns across 4 columns
@@ -835,9 +835,8 @@ function initAudio(e) {
             const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
             const step = arpIndex % 16;
             
-            // Swing: delay odd steps for groove (shuffle feel)
-            const swingAmount = 0.33;  // 33% swing
-            const swing = (step % 2 === 1) ? baseSpeed * swingAmount : 0;
+            // No swing - straight electro/trance timing
+            const swing = 0;
             const speed = baseSpeed;
             
             // Use touch-controlled chord from progression
@@ -886,43 +885,19 @@ function initAudio(e) {
                 bassGain.gain.setValueAtTime(0.005, arpTime + swing);
             }
             
-            // 4 arp patterns - one for each column
+            // 4 arp patterns - driving trance/electro style
             const arpPatternIdx = currentPatternIndex % 4;
             const arpPatterns = [
-                [0, 2, 1, 2, 0, 1, 2, 1],  // 0: Classic bounce
-                [0, 0, 2, 0, 1, 0, 2, 1],  // 1: Stutter groove
-                [2, 1, 2, 0, 2, 1, 0, 1],  // 2: Descending wave
-                [0, 1, 0, 2, 1, 0, 2, 0],  // 3: Call response
-                [0, 2, 0, 2, 1, 2, 1, 0],  // 4: Funk bounce
-                [2, 0, 1, 0, 2, 0, 1, 2],  // 5: Jump around
-                [0, 1, 2, 0, 1, 2, 0, 1],  // 6: Ascending roll
-                [1, 0, 2, 1, 0, 2, 1, 2],  // 7: Middle focus
-                [0, 0, 0, 2, 0, 0, 1, 2],  // 8: Sparse hit
-                [2, 2, 1, 1, 0, 0, 1, 2],  // 9: Cascade down
-                [0, 1, 1, 0, 2, 1, 1, 0],  // 10: Triplet feel
-                [1, 2, 0, 1, 2, 0, 1, 2],  // 11: Rotating
-                [0, 2, 2, 0, 1, 1, 0, 2],  // 12: Double notes
-                [2, 0, 0, 2, 1, 0, 0, 1],  // 13: Reggae off
-                [0, 1, 2, 2, 1, 0, 0, 1],  // 14: Wave up
-                [1, 1, 0, 2, 2, 0, 1, 1],  // 15: Mirror
+                [0, 1, 2, 1, 0, 1, 2, 1],  // 0: Classic trance up-down
+                [0, 0, 1, 1, 2, 2, 1, 0],  // 1: Building wave
+                [0, 2, 0, 2, 0, 2, 1, 2],  // 2: Driving octave
+                [0, 1, 2, 0, 1, 2, 0, 2],  // 3: Ascending run
             ];
             const octavePatterns = [
-                [0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1],  // 0
-                [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1],  // 1
-                [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0],  // 2
-                [0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0],  // 3
-                [0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0],  // 4
-                [1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1],  // 5
-                [0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0],  // 6
-                [1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1],  // 7
-                [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],  // 8
-                [1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0],  // 9
-                [0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0],  // 10
-                [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0],  // 11
-                [0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0],  // 12
-                [1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1],  // 13
-                [0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0],  // 14
-                [1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1],  // 15
+                [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],  // Steady pulse
+                [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0],  // Accent highs
+                [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],  // Alternating
+                [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0],  // Build up
             ];
             
             const noteIdx = arpPatterns[arpPatternIdx][step % 8];
