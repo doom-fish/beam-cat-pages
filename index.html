@@ -795,8 +795,8 @@ function changeChordAndOctave(x, y) {
     const octaveMult = octaveMultipliers[Math.min(octaveIndex, octaveMultipliers.length - 1)];
     
     const now = audioCtx.currentTime;
-    const bassCount = 2;
-    const leadDetuneCount = 7;
+    const bassCount = 1;  // Single 303 bass oscillator
+    const leadDetuneCount = 9;  // 9 voice unison
     
     chordOscillators.forEach((osc, i) => {
         let targetFreq;
