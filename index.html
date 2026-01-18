@@ -741,7 +741,7 @@ function initAudio(e) {
     
     // Lead - pure square wave (classic SID lead)
     const leadOsc = audioCtx.createOscillator();
-    leadOsc.type = 'square';
+    leadOsc.type = 'sawtooth';  // Classic trance/electro lead
     leadOsc.frequency.value = chord[0] * 2;
     const leadGain = audioCtx.createGain();
     leadGain.gain.value = 0;
@@ -751,16 +751,27 @@ function initAudio(e) {
     leadOsc.start();
     oscillators.push(leadOsc);
     
-    // Second lead - square one octave up for that piercing SID sound
+    // Second lead - detuned sawtooth for fat supersaw feel
     const leadOsc2 = audioCtx.createOscillator();
-    leadOsc2.type = 'square';
-    leadOsc2.frequency.value = chord[0] * 4;  // Octave up
+    leadOsc2.type = 'sawtooth';
+    leadOsc2.frequency.value = chord[0] * 2 * 1.005;  // Slight detune for width
     const leadGain2 = audioCtx.createGain();
     leadGain2.gain.value = 0;
     leadOsc2.connect(leadGain2);
     leadGain2.connect(masterGain);
     leadOsc2.start();
     oscillators.push(leadOsc2);
+    
+    // Third lead - triangle one octave up for shimmer
+    const leadOsc3 = audioCtx.createOscillator();
+    leadOsc3.type = 'triangle';
+    leadOsc3.frequency.value = chord[0] * 4;
+    const leadGain3 = audioCtx.createGain();
+    leadGain3.gain.value = 0;
+    leadOsc3.connect(leadGain3);
+    leadGain3.connect(masterGain);
+    leadOsc3.start();
+    oscillators.push(leadOsc3);
     
     // Sub bass - triangle (SID triangle is very pure) - deeper for synthwave
     const subOsc = audioCtx.createOscillator();
@@ -915,20 +926,27 @@ function initAudio(e) {
             const noteTime = arpTime + swing;  // Apply swing timing
             leadGain.gain.cancelScheduledValues(noteTime);
             leadGain2.gain.cancelScheduledValues(noteTime);
+            leadGain3.gain.cancelScheduledValues(noteTime);
             if (accent > 0.5) {
                 leadOsc.frequency.setValueAtTime(leadFreq, noteTime);
-                leadOsc2.frequency.setValueAtTime(leadFreq * 2, noteTime);  // Octave up for 8-bit
-                leadGain.gain.setValueAtTime(0.12, noteTime);
-                leadGain2.gain.setValueAtTime(0.06, noteTime);
+                leadOsc2.frequency.setValueAtTime(leadFreq * 1.005, noteTime);  // Detuned
+                leadOsc3.frequency.setValueAtTime(leadFreq * 2, noteTime);  // Octave up shimmer
+                leadGain.gain.setValueAtTime(0.10, noteTime);
+                leadGain2.gain.setValueAtTime(0.08, noteTime);
+                leadGain3.gain.setValueAtTime(0.04, noteTime);
                 leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.5);
-                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.4);
+                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.45);
+                leadGain3.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.3);
             } else if (accent > 0.2) {
                 leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave, noteTime);
-                leadOsc2.frequency.setValueAtTime(progChord[noteIdx] * 4 * octave, noteTime);
-                leadGain.gain.setValueAtTime(0.06, noteTime);
-                leadGain2.gain.setValueAtTime(0.03, noteTime);
+                leadOsc2.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave * 1.005, noteTime);
+                leadOsc3.frequency.setValueAtTime(progChord[noteIdx] * 4 * octave, noteTime);
+                leadGain.gain.setValueAtTime(0.05, noteTime);
+                leadGain2.gain.setValueAtTime(0.04, noteTime);
+                leadGain3.gain.setValueAtTime(0.02, noteTime);
                 leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.3);
-                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.25);
+                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.28);
+                leadGain3.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.2);
             }
             
             // Sub bass follows root with swing
