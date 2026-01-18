@@ -75,7 +75,10 @@ void main() {
     // Base Y rotation (spin) - angle from JS (accumulated based on BPM)
     p = rotateAxis(p, vec3(0.0, 1.0, 0.0), u_rotation);
     
-    // Tilt toward finger - u_touching scales the angle (0 = up, 1 = full tilt)
+    // Save base position (pointing up, just spinning)
+    vec3 baseP = p;
+    
+    // Calculate tilted position toward finger
     vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
     float dist = length(fingerDir);
     
@@ -92,10 +95,13 @@ void main() {
         if (axisLen > 0.001) {
             axis = normalize(axis);
             float angle = acos(clamp(dot(up, target), -1.0, 1.0));
-            // u_touching scales angle: smoothly fades tilt to 0 (up)
-            p = rotateAxis(p, axis, angle * u_touching);
+            p = rotateAxis(p, axis, angle);
         }
     }
+    
+    // Mix between base (up) and tilted based on u_touching
+    // u_touching=0: pointing up, u_touching=1: pointing at finger
+    p = mix(baseP, p, u_touching);
     
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
