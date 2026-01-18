@@ -816,27 +816,43 @@ function initAudio(e) {
                 bassGain.gain.setValueAtTime(0.005, arpTime + swing);
             }
             
-            // Groovy 8-bit arp patterns with more character
-            const arpPatternIdx = currentPatternIndex % 8;
+            // 16 unique arp patterns - one for each grid cell
+            const arpPatternIdx = currentPatternIndex % 16;
             const arpPatterns = [
-                [0, 2, 1, 2, 0, 1, 2, 1],  // Classic bounce
-                [0, 0, 2, 0, 1, 0, 2, 1],  // Stutter groove
-                [2, 1, 2, 0, 2, 1, 0, 1],  // Descending wave
-                [0, 1, 0, 2, 1, 0, 2, 0],  // Call response
-                [0, 2, 0, 2, 1, 2, 1, 0],  // Funk bounce
-                [2, 0, 1, 0, 2, 0, 1, 2],  // Jump around
-                [0, 1, 2, 0, 1, 2, 0, 1],  // Ascending roll
-                [1, 0, 2, 1, 0, 2, 1, 2],  // Middle focus
+                [0, 2, 1, 2, 0, 1, 2, 1],  // 0: Classic bounce
+                [0, 0, 2, 0, 1, 0, 2, 1],  // 1: Stutter groove
+                [2, 1, 2, 0, 2, 1, 0, 1],  // 2: Descending wave
+                [0, 1, 0, 2, 1, 0, 2, 0],  // 3: Call response
+                [0, 2, 0, 2, 1, 2, 1, 0],  // 4: Funk bounce
+                [2, 0, 1, 0, 2, 0, 1, 2],  // 5: Jump around
+                [0, 1, 2, 0, 1, 2, 0, 1],  // 6: Ascending roll
+                [1, 0, 2, 1, 0, 2, 1, 2],  // 7: Middle focus
+                [0, 0, 0, 2, 0, 0, 1, 2],  // 8: Sparse hit
+                [2, 2, 1, 1, 0, 0, 1, 2],  // 9: Cascade down
+                [0, 1, 1, 0, 2, 1, 1, 0],  // 10: Triplet feel
+                [1, 2, 0, 1, 2, 0, 1, 2],  // 11: Rotating
+                [0, 2, 2, 0, 1, 1, 0, 2],  // 12: Double notes
+                [2, 0, 0, 2, 1, 0, 0, 1],  // 13: Reggae off
+                [0, 1, 2, 2, 1, 0, 0, 1],  // 14: Wave up
+                [1, 1, 0, 2, 2, 0, 1, 1],  // 15: Mirror
             ];
             const octavePatterns = [
-                [0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1],  // Groove 1
-                [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1],  // Groove 2
-                [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0],  // Synth wave
-                [0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0],  // Shuffle
-                [0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0],  // Double up
-                [1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1],  // Random feel
-                [0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0],  // Build groove
-                [1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1],  // Accent high
+                [0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1],  // 0
+                [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1],  // 1
+                [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0],  // 2
+                [0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0],  // 3
+                [0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0],  // 4
+                [1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1],  // 5
+                [0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0],  // 6
+                [1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1],  // 7
+                [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],  // 8
+                [1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0],  // 9
+                [0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0],  // 10
+                [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0],  // 11
+                [0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0],  // 12
+                [1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1],  // 13
+                [0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0],  // 14
+                [1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1],  // 15
             ];
             
             const noteIdx = arpPatterns[arpPatternIdx][step % 8];
@@ -975,6 +991,7 @@ document.addEventListener('touchstart', (e) => {
     // Same grid controls as touchmove
     const gridX = Math.floor(x * 4);
     const gridY = Math.floor(y * 4);
+    const cellIndex = gridX + gridY * 4;
     if (window.jamState) {
         window.jamState.progIndex = gridX;
         const octaves = [2, 1.5, 1, 0.5];
@@ -984,7 +1001,7 @@ document.addEventListener('touchstart', (e) => {
         }
         window.jamState.octaveShift = newOctave;
     }
-    currentBpm = 100 + x * 60;
+    currentPatternIndex = cellIndex;
     clickGlitch = 0.8;
 });
 document.addEventListener('mousedown', (e) => {
@@ -997,6 +1014,7 @@ document.addEventListener('mousedown', (e) => {
     // Same grid controls as mousemove
     const gridX = Math.floor(x * 4);
     const gridY = Math.floor(y * 4);
+    const cellIndex = gridX + gridY * 4;
     if (window.jamState) {
         window.jamState.progIndex = gridX;
         const octaves = [2, 1.5, 1, 0.5];
@@ -1006,7 +1024,7 @@ document.addEventListener('mousedown', (e) => {
         }
         window.jamState.octaveShift = newOctave;
     }
-    currentBpm = 100 + x * 60;
+    currentPatternIndex = cellIndex;
     clickGlitch = 0.8;
 });
 document.addEventListener('mouseup', () => {
@@ -1036,7 +1054,8 @@ document.addEventListener('touchmove', (e) => {
     // 4x4 grid glitch on cell change
     const gridX = Math.floor(x * 4);
     const gridY = Math.floor(y * 4);
-    const newGlitchMode = gridX + gridY * 4;
+    const cellIndex = gridX + gridY * 4;  // 0-15 unique per cell
+    const newGlitchMode = cellIndex;
     if (newGlitchMode !== glitchMode) {
         glitchMode = newGlitchMode;
     }
@@ -1054,10 +1073,8 @@ document.addEventListener('touchmove', (e) => {
         window.jamState.filterMod = (gridX + gridY) / 6;
         window.jamState.swingAmount = gridY * 0.1;
     }
-    currentBpm = 100 + x * 60;
-    // Diagonal cells get different patterns (0,0), (1,1), (2,2), (3,3)
-    const isDiagonal = (gridX === gridY);
-    currentPatternIndex = isDiagonal ? (gridX * 3 + 7) : (gridX * 2);
+    // Each cell has unique arp pattern (0-15)
+    currentPatternIndex = cellIndex;
 }, { passive: false });
 
 const startTime = performance.now() / 1000;
