@@ -519,14 +519,18 @@ function handleInteraction(e, triggerGlitch) {
         clickGlitch = 1.0;  // Trigger glitch on mode change
     }
     
-    // X = chord in progression (4 chords), Y = octave (0.5, 1, 2)
+    // Jam controls
     if (window.jamState) {
+        // X = chord (4 chords across screen)
         window.jamState.progIndex = Math.floor(x * 4);
-        const octaves = [2, 1, 1, 0.5];  // Top = high, bottom = low
+        // Y = octave (top high, bottom low) 
+        const octaves = [2, 1.5, 1, 0.5];
         window.jamState.octaveShift = octaves[Math.floor(y * 4)];
+        // X also controls BPM slightly (120-160)
+        currentBpm = 120 + x * 40;
     }
     
-    // Also control pattern with X
+    // Pattern changes with X position
     currentPatternIndex = Math.floor(x * gatePatterns.length);
     
     if (!audioCtx) {
@@ -708,12 +712,12 @@ function initAudio(e) {
             
             if (accent > 0.5) {
                 leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave * (arpOctave ? 2 : 1), arpTime);
-                leadGain.gain.setValueAtTime(0.12, arpTime);  // Louder lead
-                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.6);
+                leadGain.gain.setValueAtTime(0.2, arpTime);  // Much louder lead
+                leadGain.gain.exponentialRampToValueAtTime(0.02, arpTime + speed * 0.6);
             } else if (accent > 0.2) {
                 leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave, arpTime);
-                leadGain.gain.setValueAtTime(0.07, arpTime);  // Louder lead
-                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.4);
+                leadGain.gain.setValueAtTime(0.12, arpTime);  // Louder lead
+                leadGain.gain.exponentialRampToValueAtTime(0.02, arpTime + speed * 0.4);
             }
             
             // 8-bit drums - kick on 1 and 9, snare on 5 and 13, hats on others
@@ -778,6 +782,10 @@ function changeChord(chordIndex) {
 // Start audio on user interaction - touchend is most reliable on iOS
 document.addEventListener('click', (e) => handleInteraction(e, true));
 document.addEventListener('touchend', (e) => handleInteraction(e, true));
+document.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    handleInteraction(e, false);  // Immediate response on touch
+}, { passive: false });
 document.addEventListener('touchmove', (e) => {
     e.preventDefault();
     let x = 0.5, y = 0.5;
@@ -786,11 +794,19 @@ document.addEventListener('touchmove', (e) => {
         y = e.touches[0].clientY / window.innerHeight;
     }
     
-    // X = chord in progression, Y = octave
+    // Grid glitch on quadrant change
+    const newGlitchMode = Math.floor(x * 2) + Math.floor(y * 2) * 2;
+    if (newGlitchMode !== glitchMode) {
+        glitchMode = newGlitchMode;
+        clickGlitch = 0.8;  // Glitch on move across grid
+    }
+    
+    // Jam controls - real-time updates
     if (window.jamState) {
         window.jamState.progIndex = Math.floor(x * 4);
-        const octaves = [2, 1, 1, 0.5];
+        const octaves = [2, 1.5, 1, 0.5];
         window.jamState.octaveShift = octaves[Math.floor(y * 4)];
+        currentBpm = 120 + x * 40;
     }
     currentPatternIndex = Math.floor(x * gatePatterns.length);
 }, { passive: false });
