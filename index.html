@@ -673,10 +673,10 @@ function initAudio(e) {
         chordOscs.push(osc);
     }
     
-    // Lead - square wave for stabs
+    // Lead - sawtooth for richer 8-bit sound
     const leadOsc = audioCtx.createOscillator();
-    leadOsc.type = 'square';
-    leadOsc.frequency.value = chord[0] * 2;  // One octave down (was *4)
+    leadOsc.type = 'sawtooth';
+    leadOsc.frequency.value = chord[0] * 2;
     const leadGain = audioCtx.createGain();
     leadGain.gain.value = 0;
     leadOsc.connect(leadGain);
@@ -684,6 +684,28 @@ function initAudio(e) {
     leadGain.connect(delay);
     leadOsc.start();
     oscillators.push(leadOsc);
+    
+    // Second lead voice - detuned saw for thickness
+    const leadOsc2 = audioCtx.createOscillator();
+    leadOsc2.type = 'sawtooth';
+    leadOsc2.frequency.value = chord[0] * 2 * 1.005;  // Slight detune
+    const leadGain2 = audioCtx.createGain();
+    leadGain2.gain.value = 0;
+    leadOsc2.connect(leadGain2);
+    leadGain2.connect(masterGain);
+    leadOsc2.start();
+    oscillators.push(leadOsc2);
+    
+    // Sub bass - sine for punch
+    const subOsc = audioCtx.createOscillator();
+    subOsc.type = 'sine';
+    subOsc.frequency.value = chord[0] / 2;  // One octave below bass
+    const subGain = audioCtx.createGain();
+    subGain.gain.value = 0.06;
+    subOsc.connect(subGain);
+    subGain.connect(masterGain);
+    subOsc.start();
+    oscillators.push(subOsc);
     
     // 8-bit drums
     // Kick - square wave with pitch envelope
@@ -787,7 +809,7 @@ function initAudio(e) {
                 bassGain.gain.setValueAtTime(0.005, arpTime);
             }
             
-            // Arp pattern on lead
+            // Arp pattern on lead (dual saw voices)
             const noteIdx = step % 3;
             const arpOctave = Math.floor(step / 4) % 2;
             const accent = pattern[step];
@@ -795,15 +817,25 @@ function initAudio(e) {
             // Update lead intensity for glow sync
             leadIntensity = accent;
             
+            const leadFreq = progChord[noteIdx] * 2 * octave * (arpOctave ? 2 : 1);
             if (accent > 0.5) {
-                leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave * (arpOctave ? 2 : 1), arpTime);
-                leadGain.gain.setValueAtTime(0.2, arpTime);  // Much louder lead
-                leadGain.gain.exponentialRampToValueAtTime(0.02, arpTime + speed * 0.6);
+                leadOsc.frequency.setValueAtTime(leadFreq, arpTime);
+                leadOsc2.frequency.setValueAtTime(leadFreq * 1.005, arpTime);  // Detuned
+                leadGain.gain.setValueAtTime(0.15, arpTime);
+                leadGain2.gain.setValueAtTime(0.1, arpTime);
+                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.6);
+                leadGain2.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.6);
             } else if (accent > 0.2) {
                 leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave, arpTime);
-                leadGain.gain.setValueAtTime(0.12, arpTime);  // Louder lead
-                leadGain.gain.exponentialRampToValueAtTime(0.02, arpTime + speed * 0.4);
+                leadOsc2.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave * 1.005, arpTime);
+                leadGain.gain.setValueAtTime(0.08, arpTime);
+                leadGain2.gain.setValueAtTime(0.05, arpTime);
+                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.4);
+                leadGain2.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.4);
             }
+            
+            // Sub bass follows root
+            subOsc.frequency.setValueAtTime(progChord[0] / 2 * octave, arpTime);
             
             // 8-bit drums - kick on 1 and 9, snare on 5 and 13, hats on others
             // Drums come in after 32 steps (2 bars)
