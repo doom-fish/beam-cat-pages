@@ -72,8 +72,8 @@ void main() {
     float t = u_time;
     vec3 p = a_pos * u_scale * 2.5;
     
-    // Base Y rotation (spin) - speed based on BPM (100=0.5, 160=0.8 rad/s)
-    float rotSpeed = u_bpm / 200.0;
+    // Base Y rotation (spin) - speed based on BPM (100=0.3, 160=0.8 rad/s)
+    float rotSpeed = 0.1 + (u_bpm - 100.0) / 120.0;
     p = rotateAxis(p, vec3(0.0, 1.0, 0.0), t * rotSpeed);
     
     // Only tilt if finger is away from center
@@ -965,9 +965,15 @@ function render() {
     // Smooth interpolation toward touch position
     const targetX = isTouching ? touchPos.x : 0.5;
     const targetY = isTouching ? touchPos.y : 0.5;
-    const lerp = 0.08;  // Interpolation speed
-    smoothTouchPos.x += (targetX - smoothTouchPos.x) * lerp;
-    smoothTouchPos.y += (targetY - smoothTouchPos.y) * lerp;
+    // Faster return to center when not touching
+    const lerpSpeed = isTouching ? 0.08 : 0.15;
+    smoothTouchPos.x += (targetX - smoothTouchPos.x) * lerpSpeed;
+    smoothTouchPos.y += (targetY - smoothTouchPos.y) * lerpSpeed;
+    // Snap to center if very close
+    if (!isTouching && Math.abs(smoothTouchPos.x - 0.5) < 0.01 && Math.abs(smoothTouchPos.y - 0.5) < 0.01) {
+        smoothTouchPos.x = 0.5;
+        smoothTouchPos.y = 0.5;
+    }
     gl.uniform2f(gl.getUniformLocation(octaProg, 'u_touch'), smoothTouchPos.x, smoothTouchPos.y);
     
     gl.lineWidth(2);
