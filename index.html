@@ -1001,7 +1001,7 @@ function render() {
     const now = performance.now() / 1000;
     const deltaTime = lastFrameTime ? (now - lastFrameTime) : 0.016;
     lastFrameTime = now;
-    const rotSpeed = 0.05 + (currentBpm - 100) / 60;  // 100 BPM = 0.05 rad/s (super slow), 160 BPM = 1.05 rad/s
+    const rotSpeed = 0.05 + (currentBpm - 100) / 30;  // 100 BPM = 0.05 rad/s (super slow), 160 BPM = 2.05 rad/s
     pyramidRotation += deltaTime * rotSpeed;
     
     // Render pyramid to FBO
