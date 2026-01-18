@@ -579,10 +579,10 @@ let leadIntensity = 0;  // Current lead pattern intensity for glow sync
 
 // Gate patterns - structured electronic patterns (less random, more mechanical)
 const gatePatterns = [
-    [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],  // Straight 16ths
-    [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],  // Four on floor
-    [1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0],  // Double hit
-    [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],  // SID arp classic
+    [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1],  // Classic trance build
+    [1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0],  // Offbeat trance
+    [1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1],  // Driving anthem
+    [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0],  // Euro trance stab
 ];
 
 // Minor chords from D minor scale - sub bass octave
@@ -887,14 +887,14 @@ function initAudio(e) {
             // 4 arp patterns - driving trance/electro style
             const arpPatternIdx = currentPatternIndex % 4;
             const arpPatterns = [
-                [0, 1, 2, 1, 0, 1, 2, 1],  // 0: Classic trance up-down
-                [0, 0, 1, 1, 2, 2, 1, 0],  // 1: Building wave
-                [0, 2, 0, 2, 0, 2, 1, 2],  // 2: Driving octave
-                [0, 1, 2, 0, 1, 2, 0, 2],  // 3: Ascending run
+                [0, 2, 1, 2, 0, 2, 1, 2],  // 0: Classic trance anthem
+                [0, 1, 2, 2, 1, 0, 2, 1],  // 1: Uplifting build
+                [0, 0, 2, 0, 1, 0, 2, 1],  // 2: Driving bass pulse
+                [2, 1, 0, 1, 2, 0, 1, 2],  // 3: Descending hook
             ];
             const octavePatterns = [
-                [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],  // Steady pulse
-                [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0],  // Accent highs
+                [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1],  // Building energy
+                [0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0],  // Syncopated highs
                 [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],  // Alternating
                 [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0],  // Build up
             ];
