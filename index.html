@@ -671,18 +671,18 @@ function initAudio(e) {
     highShelf.gain.value = 4;
     highShelf.connect(leadEnvGain);
     
-    // Accelerometer: X = speed (BPM), Y = octave multiplier
+    // Accelerometer: X = speed (BPM), Y = octave multiplier (more sensitive)
     function handleMotion(e) {
         if (e.accelerationIncludingGravity) {
-            // X tilt = BPM (90-160)
+            // X tilt = BPM (80-170) - more sensitive: ±5 range instead of ±10
             const x = e.accelerationIncludingGravity.x || 0;
-            const normalizedX = (x + 10) / 20;
-            currentBpm = 90 + Math.max(0, Math.min(1, normalizedX)) * 70;
+            const normalizedX = (x + 5) / 10;
+            currentBpm = 80 + Math.max(0, Math.min(1, normalizedX)) * 90;
             
-            // Y tilt = octave shift
+            // Y tilt = octave shift (0.25x to 3x) - more sensitive
             const y = e.accelerationIncludingGravity.y || 0;
-            const normalizedY = (y + 10) / 20;
-            const octaveShift = 0.5 + Math.max(0, Math.min(1, normalizedY)) * 1.5;
+            const normalizedY = (y + 5) / 10;
+            const octaveShift = 0.25 + Math.max(0, Math.min(1, normalizedY)) * 2.75;
             
             // Apply to all oscillators
             if (chordOscillators.length > 0 && lastChordIndex >= 0) {
@@ -690,7 +690,7 @@ function initAudio(e) {
                 const now = audioCtx.currentTime;
                 chordOscillators.forEach((osc, i) => {
                     const baseFreq = (chord[i % chord.length] || chord[0]) * 4;
-                    osc.frequency.setTargetAtTime(baseFreq * octaveShift, now, 0.1);
+                    osc.frequency.setTargetAtTime(baseFreq * octaveShift, now, 0.05);
                 });
             }
         }
