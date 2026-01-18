@@ -532,22 +532,22 @@ function initAudio(e) {
     masterGain.gain.value = 0.15;
     masterGain.connect(audioCtx.destination);
     
-    // Trance gate LFO for bass
+    // Trance gate - applies to everything
     const gateGain = audioCtx.createGain();
-    gateGain.gain.value = 0;
+    gateGain.gain.value = 1;
     gateGain.connect(masterGain);
     
-    // Gate rhythm - 16th notes at ~130 BPM
+    // Gate rhythm - 8th notes at ~130 BPM for more prominent effect
     const bpm = 130;
-    const gateInterval = 60 / bpm / 4;  // 16th note
+    const gateInterval = 60 / bpm / 2;  // 8th note (slower, more noticeable)
     
     function runGate() {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
         gateGain.gain.cancelScheduledValues(now);
         gateGain.gain.setValueAtTime(1, now);
-        gateGain.gain.exponentialRampToValueAtTime(0.01, now + gateInterval * 0.7);
-        gateGain.gain.setValueAtTime(0, now + gateInterval * 0.9);
+        gateGain.gain.exponentialRampToValueAtTime(0.05, now + gateInterval * 0.5);
+        gateGain.gain.setValueAtTime(0, now + gateInterval * 0.8);
         setTimeout(runGate, gateInterval * 1000);
     }
     runGate();
@@ -586,7 +586,7 @@ function initAudio(e) {
         filter.frequency.value = 2000 + i * 300;  // Bright
         filter.Q.value = 1.5;  // Slight resonance
         filter.connect(noteGain);
-        noteGain.connect(masterGain);
+        noteGain.connect(gateGain);  // Route lead through gate too
         leadFilters.push(filter);
         
         superDetunes.forEach(detune => {
