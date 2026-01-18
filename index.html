@@ -259,21 +259,37 @@ void main() {
     }
     col += vec3(0.4, 0.02, 0.6) * logoGlow * 2.0;
     
-    // Pixelated particles around logo
-    vec2 particleUV = v_uv * 150.0;  // Grid size
-    vec2 particleCell = floor(particleUV);
-    float particleSeed = fract(sin(dot(particleCell, vec2(12.9898, 78.233))) * 43758.5);
-    float particleTime = fract(sin(particleSeed * 127.1 + u_time * 0.3) * 43758.5);
-    float particleLife = smoothstep(0.0, 0.1, particleTime) * smoothstep(1.0, 0.7, particleTime);
-    float particleShow = step(0.97, particleSeed);  // Only 3% of cells have particles
-    
-    // Only show near logo area
-    float logoDistX = abs(v_uv.x - 0.5);
-    float logoDistY = abs(v_uv.y - 0.47);
-    float nearLogo = step(logoDistX, 0.25) * step(logoDistY, 0.15);
-    
-    vec3 particleColor = vec3(0.8, 0.4, 1.0) * particleLife * particleShow * nearLogo * 0.6;
-    col += particleColor;
+    // Magical dust particles floating from logo
+    float numParticles = 25.0;
+    for (float i = 0.0; i < 25.0; i += 1.0) {
+        float seed = fract(sin(i * 127.1) * 43758.5);
+        float seed2 = fract(sin(i * 269.5) * 43758.5);
+        float seed3 = fract(sin(i * 419.2) * 43758.5);
+        
+        // Particle lifetime and phase
+        float lifetime = 4.0 + seed * 3.0;  // 4-7 seconds
+        float phase = fract((u_time + seed * 10.0) / lifetime);
+        float fade = smoothstep(0.0, 0.1, phase) * smoothstep(1.0, 0.8, phase);
+        
+        // Start from logo area, drift upward and sideways
+        float startX = 0.35 + seed * 0.3;  // Logo width area
+        float startY = 0.42 + seed2 * 0.1;  // Logo height area
+        float driftX = (seed2 - 0.5) * 0.15 * phase;
+        float driftY = phase * 0.12 + sin(u_time * 0.5 + seed * 6.28) * 0.01;
+        
+        vec2 particlePos = vec2(startX + driftX, startY + driftY);
+        
+        // Particle size and shape
+        float size = 0.002 + seed3 * 0.002;
+        float dist = length(v_uv - particlePos);
+        float particle = smoothstep(size, size * 0.3, dist);
+        
+        // Twinkle
+        float twinkle = 0.5 + 0.5 * sin(u_time * (3.0 + seed * 4.0) + seed * 6.28);
+        
+        vec3 dustColor = vec3(0.9, 0.7, 1.0) * particle * fade * twinkle * 0.4;
+        col += dustColor;
+    }
     
     if (glitchUV.x >= 0.0 && glitchUV.x <= 1.0 && glitchUV.y >= 0.0 && glitchUV.y <= 1.0) {
         vec4 logo = texture2D(u_logo, glitchUV);
