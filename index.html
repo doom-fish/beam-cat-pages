@@ -509,6 +509,13 @@ const gatePatterns = [
     [1, 0, 0, 0.8, 0, 0, 1, 0, 0, 0.7, 0, 1, 0, 0.6, 0, 0.9],  // Breakbeat
     [1, 0.4, 0.6, 0.4, 1, 0.5, 0.7, 0.3, 1, 0.4, 0.8, 0.5, 1, 0.6, 0.5, 0.4],  // Driving
     [1, 0, 0, 0, 0.7, 0, 0, 0, 1, 0, 0, 0.5, 0, 0.8, 0, 0],  // Minimal
+    [1, 0.6, 0, 0.8, 0, 0.5, 1, 0, 0.7, 0, 0.9, 0, 0.4, 1, 0, 0.6],  // Offbeat
+    [1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0],  // Trance gate
+    [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],  // Straight 8ths
+    [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],  // Triplet feel
+    [1, 0.3, 0.6, 0.9, 0.6, 0.3, 1, 0.3, 0.6, 0.9, 0.6, 0.3, 1, 0.5, 0.7, 0.4],  // Wave
+    [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0],  // Sparse
+    [0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1],  // Pumping
 ];
 
 // Minor chords from D minor scale - sub bass octave
@@ -734,14 +741,20 @@ function initAudio(e) {
                 chordOscs[i].frequency.setValueAtTime(progChord[i] * octave, arpTime);
             }
             
-            // Chord gate pattern - pulsing pad
-            const chordPattern = [0.8, 0.3, 0.6, 0.2, 0.9, 0.4, 0.5, 0.3, 0.7, 0.2, 0.6, 0.3, 0.8, 0.4, 0.5, 0.2];
-            const chordAccent = chordPattern[step];
-            chordGain.gain.setValueAtTime(0.06 * chordAccent, arpTime);
-            chordGain.gain.exponentialRampToValueAtTime(0.02, arpTime + speed * 0.8);
+            // Chord gate pattern - use pattern based on grid position
+            const padPatternIdx = (currentPatternIndex + 3) % gatePatterns.length;
+            const padPattern = gatePatterns[padPatternIdx];
+            const chordAccent = padPattern[step];
+            if (chordAccent > 0.1) {
+                chordGain.gain.setValueAtTime(0.07 * chordAccent, arpTime);
+                chordGain.gain.exponentialRampToValueAtTime(0.015, arpTime + speed * 0.7);
+            } else {
+                chordGain.gain.setValueAtTime(0.015, arpTime);
+            }
             
-            // Triangle pattern - offbeat stabs
-            const triPattern = [0, 0.8, 0, 0.5, 0, 0.9, 0, 0.4, 0, 0.7, 0, 0.6, 0, 0.8, 0, 0.3];
+            // Triangle pattern - offbeat rhythmic stabs
+            const triPatternIdx = (currentPatternIndex + 5) % gatePatterns.length;
+            const triPattern = gatePatterns[triPatternIdx];
             const triAccent = triPattern[step];
             if (triAccent > 0.5) {
                 triangleGain.gain.setValueAtTime(0.1, arpTime);
