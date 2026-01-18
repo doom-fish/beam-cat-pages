@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laser Kiosk</title>
+    <script>
+        if (location.protocol === 'http:' && location.hostname !== 'localhost' && !location.hostname.startsWith('100.')) {
+            location.replace('https://' + location.host + location.pathname);
+        }
+    </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #000; overflow: hidden; }
