@@ -162,13 +162,13 @@ void main() {
     vec4 blur = texture2D(u_blur, v_uv);
     
     // Pyramid RGB split glitch - less frequent, more random
-    float pyramidGlitchSeed = floor(u_time * 0.2);
+    float pyramidGlitchSeed = floor(u_time * 0.1);  // Slower auto glitch
     float pyramidGlitchRand = fract(sin(pyramidGlitchSeed * 78.233) * 43758.5);
-    float pyramidGlitchPhase = fract(u_time * 0.2);
-    float pyramidGlitchActive = step(0.92, pyramidGlitchPhase) * step(0.6, pyramidGlitchRand);
+    float pyramidGlitchPhase = fract(u_time * 0.1);
+    float pyramidGlitchActive = step(0.97, pyramidGlitchPhase) * step(0.85, pyramidGlitchRand);  // Rarer
     
-    // Click triggers strong glitch
-    pyramidGlitchActive = max(pyramidGlitchActive, u_clickGlitch);
+    // Click triggers strong glitch - much stronger
+    pyramidGlitchActive = max(pyramidGlitchActive, u_clickGlitch * 1.5);
     
     // Random RGB split offsets
     float splitSeed = floor(u_time * 15.0);
@@ -177,7 +177,7 @@ void main() {
     float splitRandX2 = (fract(sin(splitSeed * 419.2) * 43758.5) - 0.5) * 2.0;
     float splitRandY2 = (fract(sin(splitSeed * 531.7) * 43758.5) - 0.5) * 2.0;
     
-    float splitAmount = 0.008 * pyramidGlitchActive + 0.015 * u_clickGlitch;
+    float splitAmount = 0.005 * pyramidGlitchActive + 0.025 * u_clickGlitch;  // More from click
     vec2 rOffset = vec2(splitRandX, splitRandY) * splitAmount;
     vec2 bOffset = vec2(splitRandX2, splitRandY2) * splitAmount;
     
@@ -214,23 +214,26 @@ void main() {
     float logoScale = 0.3;
     float logoHeight = logoScale / u_logoAspect;
     
-    float timeSeed = floor(u_time * 0.15);
+    float timeSeed = floor(u_time * 0.08);  // Much slower auto glitch
     float intervalRand = fract(sin(timeSeed * 127.1) * 43758.5);
-    float interval = 5.0 + intervalRand * 6.0;
+    float interval = 8.0 + intervalRand * 10.0;  // Longer intervals
     float flickerPhase = mod(u_time, interval);
-    float flickerDuration = 0.12 + intervalRand * 0.15;
-    float flickerActive = step(interval - flickerDuration, flickerPhase);
+    float flickerDuration = 0.1 + intervalRand * 0.1;
+    float flickerActive = step(interval - flickerDuration, flickerPhase) * step(0.7, intervalRand);  // Rarer
+    
+    // Click overrides auto glitch
+    flickerActive = max(flickerActive, u_clickGlitch);
     
     float jitterSeed = floor(u_time * 30.0);
     vec2 logoJitter = vec2(
-        (fract(sin(jitterSeed * 127.1) * 43758.5) - 0.5) * 0.015,
-        (fract(sin(jitterSeed * 269.5) * 43758.5) - 0.5) * 0.012
+        (fract(sin(jitterSeed * 127.1) * 43758.5) - 0.5) * 0.01,
+        (fract(sin(jitterSeed * 269.5) * 43758.5) - 0.5) * 0.008
     ) * flickerActive;
     
-    // Click adds extra jitter
+    // Click adds extra jitter - much stronger
     logoJitter += vec2(
-        (fract(sin(u_time * 127.1) * 43758.5) - 0.5) * 0.03,
-        (fract(sin(u_time * 269.5) * 43758.5) - 0.5) * 0.025
+        (fract(sin(u_time * 127.1) * 43758.5) - 0.5) * 0.05,
+        (fract(sin(u_time * 269.5) * 43758.5) - 0.5) * 0.04
     ) * u_clickGlitch;
     
     // Subtle ambient glow pulse
