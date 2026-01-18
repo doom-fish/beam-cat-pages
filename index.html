@@ -78,30 +78,20 @@ void main() {
     // Save base position (pointing up, just spinning)
     vec3 baseP = p;
     
-    // Calculate tilted position toward finger
+    // Calculate tilt toward finger - 2D only, no Z/camera push
     vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
     float dist = length(fingerDir);
     
-    if (dist > 0.02) {
-        // Target direction: finger position + outward toward camera
-        vec3 up = vec3(0.0, 1.0, 0.0);
-        float cameraZ = 0.3 + dist * 0.5;
-        vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, cameraZ));
-        
-        // Rotation axis perpendicular to both
-        vec3 axis = cross(up, target);
-        float axisLen = length(axis);
-        
-        if (axisLen > 0.001) {
-            axis = normalize(axis);
-            float angle = acos(clamp(dot(up, target), -1.0, 1.0));
-            p = rotateAxis(p, axis, angle);
-        }
-    }
+    // Tilt angle based on distance from center (max ~45 degrees)
+    float tiltAngle = dist * 0.7 * u_touching;
     
-    // Mix between base (up) and tilted based on u_touching
-    // u_touching=0: pointing up, u_touching=1: pointing at finger
-    p = mix(baseP, p, u_touching);
+    if (tiltAngle > 0.01) {
+        // Tilt axis is perpendicular to finger direction in XY plane
+        // Finger at right (1,0) -> tilt around Z axis rotated 90 degrees -> tilt axis is (0,0,1) cross (1,0,0) = (0,-1,0)... 
+        // Actually: to tilt TOWARD finger, rotate around axis perpendicular to fingerDir
+        vec3 tiltAxis = normalize(vec3(-fingerDir.y, fingerDir.x, 0.0));
+        p = rotateAxis(p, tiltAxis, tiltAngle);
+    }
     
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
