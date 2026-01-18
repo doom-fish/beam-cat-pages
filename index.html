@@ -370,8 +370,13 @@ void main() {
         float spread = (seed - 0.5) * 0.03 * phase;
         vec2 logoPos = spawnPos + vec2(spread + turbulence, riseSpeed);
         
-        // Smooth lerp both directions - logo to ring and back
-        vec2 particlePos = mix(logoPos, fingerRingPos, u_touching);
+        // Distance from particle to finger - faster lerp when closer
+        float distToFinger = length(logoPos - fingerPos);
+        float lerpSpeed = mix(1.0, 3.0, 1.0 - clamp(distToFinger * 5.0, 0.0, 1.0));
+        float adjustedTouching = clamp(u_touching * lerpSpeed, 0.0, 1.0);
+        
+        // Smooth lerp both directions - faster when near finger
+        vec2 particlePos = mix(logoPos, fingerRingPos, adjustedTouching);
         
         // Bigger square pixels - aspect corrected
         float size = 0.002 + seed3 * 0.001;
