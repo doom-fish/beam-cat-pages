@@ -773,11 +773,7 @@ function initAudio(e) {
 }
 
 function triggerGlitchSound() {
-    if (!audioCtx || !glitchGain) return;
-    const now = audioCtx.currentTime;
-    glitchGain.gain.cancelScheduledValues(now);
-    glitchGain.gain.setValueAtTime(0.25, now);  // Quieter
-    glitchGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    // Disabled - no glitch sound
 }
 
 let lastChordIndex = -1;
