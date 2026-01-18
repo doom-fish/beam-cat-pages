@@ -69,11 +69,11 @@ void main() {
     vec2 proj = p.xy / d;
     proj.x /= u_aspect;
     
-    // Pyramid glitch offset - separate timing from logo (every 1-3s)
-    float pyramidGlitchSeed = floor(t * 0.5);
+    // Pyramid glitch offset - less frequent, more random
+    float pyramidGlitchSeed = floor(t * 0.25);
     float pyramidGlitchRand = fract(sin(pyramidGlitchSeed * 43.7) * 12345.6);
-    float pyramidGlitchPhase = fract(t * 0.5);
-    float pyramidGlitchActive = step(0.85, pyramidGlitchPhase);
+    float pyramidGlitchPhase = fract(t * 0.25);
+    float pyramidGlitchActive = step(0.9, pyramidGlitchPhase) * step(0.5, pyramidGlitchRand);
     float jitterX = (fract(sin(floor(t * 25.0) * 78.2) * 43758.5) - 0.5) * 0.1 * pyramidGlitchActive;
     proj.x += jitterX;
     
@@ -164,10 +164,11 @@ void main() {
     vec4 orig = texture2D(u_orig, v_uv);
     vec4 blur = texture2D(u_blur, v_uv);
     
-    // Pyramid RGB split glitch - separate timing from logo
-    float pyramidGlitchSeed = floor(u_time * 0.5);
-    float pyramidGlitchPhase = fract(u_time * 0.5);
-    float pyramidGlitchActive = step(0.85, pyramidGlitchPhase);
+    // Pyramid RGB split glitch - less frequent, more random
+    float pyramidGlitchSeed = floor(u_time * 0.2);
+    float pyramidGlitchRand = fract(sin(pyramidGlitchSeed * 78.233) * 43758.5);
+    float pyramidGlitchPhase = fract(u_time * 0.2);
+    float pyramidGlitchActive = step(0.92, pyramidGlitchPhase) * step(0.6, pyramidGlitchRand);
     
     float rgbSplit = 0.012 * pyramidGlitchActive;
     vec4 origR = texture2D(u_orig, v_uv + vec2(rgbSplit, 0.0));
