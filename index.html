@@ -82,6 +82,16 @@ vec4 qaxis(vec3 axis, float angle) {
     return vec4(axis * sin(ha), cos(ha));
 }
 
+// Quaternion that rotates 'from' direction to 'to' direction
+vec4 qfromto(vec3 from, vec3 to) {
+    float d = dot(from, to);
+    if (d > 0.9999) return vec4(0.0, 0.0, 0.0, 1.0);
+    if (d < -0.9999) return vec4(1.0, 0.0, 0.0, 0.0); // 180 flip around X
+    vec3 axis = normalize(cross(from, to));
+    float angle = acos(clamp(d, -1.0, 1.0));
+    return qaxis(axis, angle);
+}
+
 // Slerp between two quaternions
 vec4 qslerp(vec4 q1, vec4 q2, float t) {
     float d = dot(q1, q2);
@@ -102,21 +112,23 @@ void main() {
     // Identity quaternion (no tilt - pointing up)
     vec4 identityQ = vec4(0.0, 0.0, 0.0, 1.0);
     
-    // Calculate tilt quaternion toward finger
-    vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
-    float dist = length(fingerDir);
+    // Pyramid apex points in +Y direction (up)
+    vec3 up = vec3(0.0, 1.0, 0.0);
     
-    vec4 tiltQ = identityQ;
-    if (dist > 0.01) {
-        // Tilt angle: stronger tilt for further finger positions (max ~60 degrees)
-        float tiltAngle = dist * 1.0;
-        
-        // Tilt axis perpendicular to finger direction
-        // fingerDir.x positive (right) -> tilt right -> rotate around Z axis pointing "back"
-        // fingerDir.y positive (down in screen) -> tilt down -> rotate around X axis
-        vec3 tiltAxis = normalize(vec3(fingerDir.y, 0.0, -fingerDir.x));
-        tiltQ = qaxis(tiltAxis, tiltAngle);
-    }
+    // Target direction: toward finger position in screen space
+    // Screen coords: x right, y DOWN. We invert y for 3D where y is UP
+    vec2 fingerScreen = (u_touch - 0.5) * 2.0;  // -1 to 1
+    
+    // Create 3D target direction - finger position + slight forward tilt
+    // fingerScreen.y is positive at bottom of screen, we want apex to point down there
+    vec3 target = normalize(vec3(
+        fingerScreen.x * u_aspect,  // X matches screen X
+        -fingerScreen.y,            // Invert Y: bottom of screen = -Y = point down
+        0.5                         // Slight forward bias
+    ));
+    
+    // Quaternion to rotate from up to target
+    vec4 tiltQ = qfromto(up, target);
     
     // Slerp between identity (up) and tilt based on u_touching
     vec4 finalQ = qslerp(identityQ, tiltQ, u_touching);
