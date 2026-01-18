@@ -571,7 +571,7 @@ function initAudio() {
         superDetunes.forEach(detune => {
             const osc = audioCtx.createOscillator();
             osc.type = 'sawtooth';
-            osc.frequency.value = freq * 2;  // One octave up
+            osc.frequency.value = freq * 4;  // Two octaves up
             osc.detune.value = detune;
             osc.connect(filter);
             osc.start();
