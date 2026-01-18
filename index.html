@@ -192,6 +192,14 @@ void main() {
         (fract(sin(jitterSeed * 269.5) * 43758.5) - 0.5) * 0.012
     ) * flickerActive;
     
+    // Subtle ambient glow pulse
+    float glowPulse = 0.85 + 0.15 * sin(u_time * 1.5);
+    
+    // Occasional subtle scan line
+    float scanLine = sin(u_time * 0.7) * 0.5 + 0.5;
+    float scanY = fract(u_time * 0.15);
+    float scan = smoothstep(scanY - 0.02, scanY, v_uv.y) * smoothstep(scanY + 0.02, scanY, v_uv.y) * 0.1;
+    
     vec2 logoCenter = vec2(0.5, 0.47) + logoJitter;
     vec2 logoUV = (v_uv - logoCenter) / vec2(logoScale, logoHeight) + 0.5;
     logoUV.x = (logoUV.x - 0.5) * u_aspect + 0.5;
@@ -201,12 +209,17 @@ void main() {
     float glitchRand = fract(sin(glitchTime * 43.758) * 12345.6);
     float glitchActive = flickerActive * step(0.3, glitchRand);
     
+    // Mini glitches - small occasional displacement
+    float miniGlitchSeed = floor(u_time * 3.0);
+    float miniGlitchRand = fract(sin(miniGlitchSeed * 91.7) * 43758.5);
+    float miniGlitch = step(0.85, miniGlitchRand) * (miniGlitchRand - 0.85) * 0.02;
+    
     float sliceY = floor(logoUV.y * 16.0);
     float sliceRand = fract(sin(sliceY * 91.2 + glitchTime) * 43758.5);
     float sliceOffset = (sliceRand - 0.5) * 0.25 * flickerActive * step(0.4, sliceRand);
     
     vec2 glitchUV = logoUV;
-    glitchUV.x += sliceOffset;
+    glitchUV.x += sliceOffset + miniGlitch;
     
     // Logo glow
     float logoGlow = 0.0;
@@ -224,7 +237,8 @@ void main() {
     if (glitchUV.x >= 0.0 && glitchUV.x <= 1.0 && glitchUV.y >= 0.0 && glitchUV.y <= 1.0) {
         vec4 logo = texture2D(u_logo, glitchUV);
         float logoFlicker = mix(1.0, 0.92 + 0.08 * step(0.7, fract(sin(u_time * 43.0) * 12345.6)), flickerActive);
-        vec3 laserColor = vec3(1.0, 0.6, 1.0) * logoFlicker;
+        vec3 laserColor = vec3(1.0, 0.6, 1.0) * logoFlicker * glowPulse;
+        laserColor += scan * vec3(0.5, 0.2, 0.8);  // Add scan line tint
         if (glitchActive > 0.5) {
             vec4 logoR = texture2D(u_logo, glitchUV + vec2(0.03, 0.0));
             vec4 logoB = texture2D(u_logo, glitchUV - vec2(0.03, 0.0));
