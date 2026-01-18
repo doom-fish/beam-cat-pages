@@ -1146,17 +1146,14 @@ function render() {
     if (smoothTouching < 0.01) smoothTouching = 0;
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_touching'), smoothTouching);
     
-    // When touching: lerp smoothTouchPos toward finger
-    // When NOT touching: lerp smoothTouchPos toward CENTER (0.5, 0.5)
-    // This makes the tilt direction itself fade to center, combined with u_touching fading
+    // Only update smoothTouchPos while touching - FREEZE on release
+    // u_touching fades to 0, which makes mix(baseP, tiltedP, 0) = baseP (pointing up)
+    // Don't lerp toward center - that causes pyramid to go through "facing camera" position
     if (isTouching) {
         smoothTouchPos.x += (touchPos.x - smoothTouchPos.x) * 0.1;
         smoothTouchPos.y += (touchPos.y - smoothTouchPos.y) * 0.1;
-    } else {
-        // Lerp toward center so tilt direction fades
-        smoothTouchPos.x += (0.5 - smoothTouchPos.x) * 0.08;
-        smoothTouchPos.y += (0.5 - smoothTouchPos.y) * 0.08;
     }
+    // Frozen smoothTouchPos + fading u_touching = smooth return to up
     gl.uniform2f(gl.getUniformLocation(octaProg, 'u_touch'), smoothTouchPos.x, smoothTouchPos.y);
     
     gl.lineWidth(2);
