@@ -648,8 +648,8 @@ function handleInteraction(e, triggerGlitch, setTouching = true) {
         window.jamState.swingAmount = gridY * 0.1;  // Swing on lower rows
     }
     
-    // BPM varies with X (100-160)
-    currentBpm = 100 + x * 60;
+    // BPM varies with X (80-120 for darker synthwave feel)
+    currentBpm = 80 + x * 40;
     
     // Pattern changes with grid X
     currentPatternIndex = gridX * 2;  // 8 patterns across 4 columns
@@ -680,11 +680,11 @@ function initAudio(e) {
     // C64 SID-style 8-bit synth
     const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
     
-    // Simple delay for space
-    const delay = audioCtx.createDelay(0.5);
-    delay.delayTime.value = 0.3;
+    // Simple delay for space - longer for synthwave atmosphere
+    const delay = audioCtx.createDelay(0.8);
+    delay.delayTime.value = 0.4;
     const delayGain = audioCtx.createGain();
-    delayGain.gain.value = 0.2;
+    delayGain.gain.value = 0.35;
     delay.connect(delayGain);
     delayGain.connect(masterGain);
     
@@ -692,12 +692,12 @@ function initAudio(e) {
     let arpIndex = 0;
     let arpTime = audioCtx.currentTime;
     
-    // Raw C64 SID style - pure waveforms, no filter
+    // Dark synthwave progression - all minor chords, lower register
     const tranceProgression = [
-        [146.83, 174.61, 220.00],  // D minor
-        [130.81, 164.81, 196.00],  // C major
-        [146.83, 174.61, 220.00],  // D minor  
-        [116.54, 146.83, 174.61],  // Bb major
+        [73.42, 87.31, 110.00],   // D minor (one octave lower)
+        [65.41, 77.78, 92.50],    // C minor (dark)
+        [61.74, 73.42, 87.31],    // B minor (brooding)
+        [55.00, 65.41, 82.41],    // A minor (melancholic)
     ];
     
     // Touch control state (exposed globally)
@@ -768,12 +768,12 @@ function initAudio(e) {
     leadOsc2.start();
     oscillators.push(leadOsc2);
     
-    // Sub bass - triangle (SID triangle is very pure)
+    // Sub bass - triangle (SID triangle is very pure) - deeper for synthwave
     const subOsc = audioCtx.createOscillator();
     subOsc.type = 'triangle';
-    subOsc.frequency.value = chord[0] / 2;
+    subOsc.frequency.value = chord[0] / 4;  // Two octaves below for deep bass
     const subGain = audioCtx.createGain();
-    subGain.gain.value = 0.06;
+    subGain.gain.value = 0.1;  // Louder sub for that synthwave weight
     subOsc.connect(subGain);
     subGain.connect(masterGain);
     subOsc.start();
