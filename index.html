@@ -370,9 +370,8 @@ void main() {
         float spread = (seed - 0.5) * 0.03 * phase;
         vec2 logoPos = spawnPos + vec2(spread + turbulence, riseSpeed);
         
-        // Instant snap to ring when touching, smooth lerp back when releasing
-        // u_touching > 0.5 = instant ring, otherwise lerp toward logo
-        vec2 particlePos = u_touching > 0.5 ? fingerRingPos : mix(fingerRingPos, logoPos, 1.0 - u_touching * 2.0);
+        // Smooth lerp both directions - logo to ring and back
+        vec2 particlePos = mix(logoPos, fingerRingPos, u_touching);
         
         // Bigger square pixels - aspect corrected
         float size = 0.002 + seed3 * 0.001;
