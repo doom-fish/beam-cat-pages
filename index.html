@@ -484,26 +484,40 @@ function triggerClickGlitch() {
     triggerGlitchSound();
 }
 
-function changeChord() {
+function changeChord(x, y) {
     if (!audioCtx || chordOscillators.length === 0) return;
     
     triggerClickGlitch();
     
-    const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
+    // Select chord based on screen position
+    const chordIndex = Math.floor((x || 0.5) * minorChords.length);
+    const chord = minorChords[Math.min(chordIndex, minorChords.length - 1)];
     const now = audioCtx.currentTime;
     
+    // Y position affects octave shift (higher on screen = higher pitch)
+    const octaveShift = 1 + (1 - (y || 0.5)) * 0.5;  // 1.0 to 1.5
+    
     chordOscillators.forEach((osc, i) => {
-        const noteIndex = Math.floor(i / 7);  // 7 oscs per note
-        const targetFreq = chord[noteIndex];
-        osc.frequency.setTargetAtTime(targetFreq, now, 0.3);  // Quick glide
+        const noteIndex = Math.floor(i / 7) % 5;  // 7 oscs per note, 5 notes
+        const isHighLayer = i >= 35;  // First 35 are bass, next 35 are harmony
+        const baseFreq = chord[noteIndex];
+        const targetFreq = isHighLayer ? baseFreq * 4 * octaveShift : baseFreq * octaveShift;
+        osc.frequency.setTargetAtTime(targetFreq, now, 0.3);
     });
     
     triggerGlitchSound();
 }
 
-function initAudio() {
+function initAudio(e) {
+    // Get click position
+    let x = 0.5, y = 0.5;
+    if (e) {
+        x = (e.clientX || (e.touches && e.touches[0]?.clientX) || window.innerWidth/2) / window.innerWidth;
+        y = (e.clientY || (e.touches && e.touches[0]?.clientY) || window.innerHeight/2) / window.innerHeight;
+    }
+    
     if (audioStarted) {
-        changeChord();
+        changeChord(x, y);
         return;
     }
     audioStarted = true;
