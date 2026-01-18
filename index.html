@@ -636,44 +636,38 @@ function initAudio(e) {
     }
     sweepFilter();
     
-    // Classic trance supersaw lead - wide stereo, bright, with pluck
-    const superDetunes = [-40, -25, -15, -7, 0, 7, 15, 25, 40];  // 9 voice unison
+    // Classic trance supersaw lead - optimized 5 voice unison
+    const superDetunes = [-35, -12, 0, 12, 35];
     
-    // Stereo widener via slight pan
-    const panValues = [-0.8, -0.5, -0.2, 0, 0, 0, 0.2, 0.5, 0.8];
+    // Stereo pan
+    const panValues = [-0.6, -0.2, 0, 0.2, 0.6];
     
-    // Convolution reverb using impulse response
+    // Simple delay reverb (much lighter than convolution)
     const reverbGain = audioCtx.createGain();
-    reverbGain.gain.value = 0.3;  // Wet level
-    const reverbConv = audioCtx.createConvolver();
-    
-    // Generate simple reverb impulse
-    const reverbLen = audioCtx.sampleRate * 2;  // 2 second tail
-    const reverbBuffer = audioCtx.createBuffer(2, reverbLen, audioCtx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-        const data = reverbBuffer.getChannelData(ch);
-        for (let i = 0; i < reverbLen; i++) {
-            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.5));
-        }
-    }
-    reverbConv.buffer = reverbBuffer;
-    reverbConv.connect(reverbGain);
+    reverbGain.gain.value = 0.25;
+    const delay = audioCtx.createDelay(0.5);
+    delay.delayTime.value = 0.15;
+    const feedback = audioCtx.createGain();
+    feedback.gain.value = 0.3;
+    delay.connect(feedback);
+    feedback.connect(delay);
+    delay.connect(reverbGain);
     reverbGain.connect(masterGain);
     
-    // Lead envelope - plucky attack
+    // Lead envelope
     const leadEnvGain = audioCtx.createGain();
-    leadEnvGain.gain.value = 0.04;
+    leadEnvGain.gain.value = 0.05;
     leadEnvGain.connect(gateGain);
-    leadEnvGain.connect(reverbConv);  // Send to reverb
+    leadEnvGain.connect(delay);  // Send to delay reverb
     
     // High shelf for air
     const highShelf = audioCtx.createBiquadFilter();
     highShelf.type = 'highshelf';
     highShelf.frequency.value = 4000;
-    highShelf.gain.value = 6;
+    highShelf.gain.value = 4;
     highShelf.connect(leadEnvGain);
     
-    // Accelerometer-controlled filter + fallback LFO
+    // Accelerometer-controlled filter (optimized - less frequent updates)
     let accelValue = 0.5;  // 0-1 range
     let hasAccel = false;
     let filterLfoPhase = 0;
@@ -706,22 +700,23 @@ function initAudio(e) {
         
         let lfo;
         if (hasAccel) {
-            lfo = accelValue;  // Use accelerometer
+            lfo = accelValue;
         } else {
-            filterLfoPhase += 0.02;
-            lfo = Math.sin(filterLfoPhase) * 0.5 + 0.5;  // Fallback sine LFO
+            filterLfoPhase += 0.015;
+            lfo = Math.sin(filterLfoPhase) * 0.5 + 0.5;
         }
         
-        leadFilters.forEach((f, i) => {
-            f.frequency.value = 800 + lfo * 4000;  // Sweep 800-4800Hz
-        });
-        setTimeout(modulateFilters, 30);
+        const freq = 600 + lfo * 3500;
+        for (let i = 0; i < leadFilters.length; i++) {
+            leadFilters[i].frequency.value = freq;
+        }
+        setTimeout(modulateFilters, 60);  // Less frequent (was 30)
     }
     modulateFilters();
     
     chord.forEach((freq, i) => {
         const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.035;
+        noteGain.gain.value = 0.045;
         
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
@@ -748,38 +743,14 @@ function initAudio(e) {
             chordOscillators.push(osc);
         });
     });
-    
-    // Glitch noise
-    glitchGain = audioCtx.createGain();
-    glitchGain.gain.value = 0;
-    const glitchFilter = audioCtx.createBiquadFilter();
-    glitchFilter.type = 'bandpass';
-    glitchFilter.frequency.value = 1500;
-    glitchFilter.Q.value = 8;
-    glitchFilter.connect(glitchGain);
-    glitchGain.connect(masterGain);
-    
-    const bufferSize = audioCtx.sampleRate * 2;
-    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1;
-    }
-    noiseNode = audioCtx.createBufferSource();
-    noiseNode.buffer = noiseBuffer;
-    noiseNode.loop = true;
-    noiseNode.connect(glitchFilter);
-    noiseNode.start();
 }
 
-function triggerGlitchSound() {
-    // Disabled - no glitch sound
-}
+function triggerGlitchSound() {}
 
 let lastChordIndex = -1;
 let lastOctaveIndex = -1;
 
-const octaveMultipliers = [4, 2, 1];  // 3 octave zones: high, mid, low
+const octaveMultipliers = [4, 2, 1];
 
 function updateOctave(y) {
     const octaveIndex = Math.floor(y * octaveMultipliers.length);
