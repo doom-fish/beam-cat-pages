@@ -650,18 +650,27 @@ function triggerGlitchSound() {
 }
 
 let lastChordIndex = -1;
+let lastFilterIndex = -1;
+
+const filterSteps = [300, 800, 1500, 3000, 6000];  // 5 filter zones
 
 function updateFilter(y) {
     if (!audioCtx || leadFilters.length === 0) return;
+    
+    const filterIndex = Math.floor(y * filterSteps.length);
+    if (filterIndex === lastFilterIndex) return;
+    lastFilterIndex = filterIndex;
+    
     const now = audioCtx.currentTime;
-    // More dramatic range: 200-8000 Hz
-    const filterFreq = 200 + (1 - y) * 7800;
-    // Increase resonance at mid positions for wah effect
-    const resonance = 2 + Math.sin(y * Math.PI) * 4;
+    const filterFreq = filterSteps[Math.min(filterIndex, filterSteps.length - 1)];
+    const resonance = 2 + (filterIndex === 2 ? 4 : 0);  // Extra resonance in middle
+    
     leadFilters.forEach((filter, i) => {
-        filter.frequency.setTargetAtTime(filterFreq + i * 100, now, 0.02);
-        filter.Q.setTargetAtTime(resonance, now, 0.02);
+        filter.frequency.setTargetAtTime(filterFreq + i * 100, now, 0.08);
+        filter.Q.setTargetAtTime(resonance, now, 0.08);
     });
+    
+    return true;  // Changed
 }
 
 // Start audio on user interaction
@@ -675,14 +684,18 @@ document.addEventListener('touchmove', (e) => {
         y = e.touches[0].clientY / window.innerHeight;
     }
     
-    // Always update filter based on Y
-    updateFilter(y);
+    // Update filter based on Y zone
+    const filterChanged = updateFilter(y);
     
-    // Only change chord if we crossed into a new chord zone
+    // Check chord zone change
     const newChordIndex = Math.floor(x * minorChords.length);
-    if (newChordIndex !== lastChordIndex) {
+    const chordChanged = newChordIndex !== lastChordIndex;
+    
+    if (chordChanged) {
         lastChordIndex = newChordIndex;
-        handleInteraction(e, true);  // Trigger glitch on chord change
+        handleInteraction(e, true);
+    } else if (filterChanged) {
+        triggerClickGlitch();  // Glitch on filter zone change too
     }
 }, { passive: false });
 
