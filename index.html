@@ -508,14 +508,18 @@ function handleInteraction(e, triggerGlitch) {
         y = e.clientY / window.innerHeight;
     }
     
+    // Touch X = pattern, Y = chord
+    currentPatternIndex = Math.floor(x * gatePatterns.length);
+    const chordIndex = Math.floor(y * minorChords.length);
+    
     if (!audioStarted) {
         initAudio(e);
         setTimeout(() => {
-            changeChordAndOctave(x, y);
+            changeChord(chordIndex);
             if (triggerGlitch) triggerClickGlitch();
         }, 50);
     } else {
-        changeChordAndOctave(x, y);
+        changeChord(chordIndex);
         if (triggerGlitch) {
             triggerClickGlitch();
         }
@@ -667,12 +671,9 @@ function initAudio(e) {
     highShelf.gain.value = 4;
     highShelf.connect(leadEnvGain);
     
-    // Accelerometer-controlled filter (optimized - less frequent updates)
-    let accelValue = 0.5;  // 0-1 range
+    // Accelerometer: X = speed (BPM), Y = octave multiplier
     let hasAccel = false;
-    let filterLfoPhase = 0;
     
-    // Request accelerometer permission (iOS 13+)
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission().then(response => {
             if (response === 'granted') {
@@ -687,24 +688,31 @@ function initAudio(e) {
     
     function handleMotion(e) {
         if (e.accelerationIncludingGravity) {
-            // Use X and Z tilt combined, normalize to 0-1
+            // X tilt = BPM (90-160)
             const x = e.accelerationIncludingGravity.x || 0;
-            const z = e.accelerationIncludingGravity.z || 0;
-            const tilt = Math.sqrt(x * x + z * z) / 15;  // Normalize ~0-1
-            accelValue = Math.max(0, Math.min(1, tilt));
+            const normalizedX = (x + 10) / 20;
+            currentBpm = 90 + Math.max(0, Math.min(1, normalizedX)) * 70;
+            
+            // Y tilt = octave shift (applied to all oscillators)
+            const y = e.accelerationIncludingGravity.y || 0;
+            const normalizedY = (y + 10) / 20;
+            const octaveShift = 0.5 + Math.max(0, Math.min(1, normalizedY)) * 1.5; // 0.5x to 2x
+            
+            // Apply octave shift to bass
+            if (chordOscillators.length > 0) {
+                const baseFreq = minorChords[currentPatternIndex % minorChords.length][0] * 4;
+                chordOscillators[0].frequency.value = baseFreq * octaveShift;
+            }
         }
     }
+    
+    let filterLfoPhase = 0;
     
     function modulateFilters() {
         if (!audioCtx) return;
         
-        let lfo;
-        if (hasAccel) {
-            lfo = accelValue;
-        } else {
-            filterLfoPhase += 0.015;
-            lfo = Math.sin(filterLfoPhase) * 0.5 + 0.5;
-        }
+        filterLfoPhase += 0.015;
+        const lfo = Math.sin(filterLfoPhase) * 0.5 + 0.5;
         
         const freq = 600 + lfo * 3500;
         for (let i = 0; i < leadFilters.length; i++) {
@@ -748,42 +756,29 @@ function initAudio(e) {
 function triggerGlitchSound() {}
 
 let lastChordIndex = -1;
-let lastOctaveIndex = -1;
 
-const octaveMultipliers = [4, 2, 1];
-
-function updateOctave(y) {
-    const octaveIndex = Math.floor(y * octaveMultipliers.length);
-    if (octaveIndex === lastOctaveIndex) return false;
-    lastOctaveIndex = octaveIndex;
-    return true;
-}
-
-function changeChordAndOctave(x, y) {
+function changeChord(chordIndex) {
     if (!audioCtx || chordOscillators.length === 0) return;
+    if (chordIndex === lastChordIndex) return;
+    lastChordIndex = chordIndex;
     
-    const chordIndex = Math.floor((x || 0.5) * minorChords.length);
     const chord = minorChords[Math.min(chordIndex, minorChords.length - 1)];
-    
-    const octaveIndex = Math.floor((y || 0.5) * octaveMultipliers.length);
-    const octaveMult = octaveMultipliers[Math.min(octaveIndex, octaveMultipliers.length - 1)];
-    
     const now = audioCtx.currentTime;
-    const bassCount = 2;
-    const leadDetuneCount = 7;
+    const bassCount = 1;
+    const leadDetuneCount = 5;
     
     chordOscillators.forEach((osc, i) => {
         let targetFreq;
         if (i < bassCount) {
-            targetFreq = chord[i] * octaveMult;
+            targetFreq = chord[0] * 4;
         } else {
             const leadIndex = i - bassCount;
             const noteIndex = Math.floor(leadIndex / leadDetuneCount) % 5;
-            targetFreq = chord[noteIndex] * 4 * octaveMult;
+            targetFreq = (chord[noteIndex] || chord[0]) * 4;
         }
         osc.frequency.cancelScheduledValues(now);
         osc.frequency.setValueAtTime(osc.frequency.value, now);
-        osc.frequency.exponentialRampToValueAtTime(Math.max(targetFreq, 20), now + 0.1);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(targetFreq, 20), now + 0.15);
     });
 }
 
@@ -798,15 +793,10 @@ document.addEventListener('touchmove', (e) => {
         y = e.touches[0].clientY / window.innerHeight;
     }
     
-    const newChordIndex = Math.floor(x * minorChords.length);
-    const chordChanged = newChordIndex !== lastChordIndex;
-    const octaveChanged = updateOctave(y);
-    
-    if (chordChanged || octaveChanged) {
-        if (chordChanged) lastChordIndex = newChordIndex;
-        changeChordAndOctave(x, y);
-        triggerClickGlitch();
-    }
+    // X = pattern, Y = chord
+    currentPatternIndex = Math.floor(x * gatePatterns.length);
+    const chordIndex = Math.floor(y * minorChords.length);
+    changeChord(chordIndex);
 }, { passive: false });
 
 const startTime = performance.now() / 1000;
