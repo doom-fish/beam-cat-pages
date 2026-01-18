@@ -523,6 +523,11 @@ function handleInteraction(e, triggerGlitch) {
     
     if (!audioStarted) {
         initAudio(e);
+        // After init, change chord based on position
+        setTimeout(() => {
+            changeChord(x, y);
+            if (triggerGlitch) triggerClickGlitch();
+        }, 50);
     } else {
         changeChord(x, y);
         if (triggerGlitch) {
