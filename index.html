@@ -69,7 +69,7 @@ void main() {
     vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
     
     // Calculate angle to finger and tilt pyramid to point at it
-    float angle = atan(fingerDir.x, -fingerDir.y);  // Angle from up direction
+    float angle = atan(-fingerDir.x, fingerDir.y);  // Inverted to point toward finger
     float dist = length(fingerDir);  // How far from center
     float tilt = dist * 1.2;  // Tilt amount based on distance (up to ~70 degrees)
     
