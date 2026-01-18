@@ -73,18 +73,7 @@ void main() {
     float glitchRand = fract(sin(glitchSeed * 78.233) * 43758.5);
     float glitch = step(0.7, glitchRand) * 0.5;
     float flicker = u_flicker * (1.0 - glitch);
-    
-    // Color flicker - switch between purple, green, red
-    float colorSeed = floor(u_time * 8.0);
-    float colorRand = fract(sin(colorSeed * 127.1) * 43758.5);
-    vec3 baseColor = vec3(0.8, 0.1, 1.0);  // purple
-    if (colorRand > 0.85) {
-        baseColor = vec3(0.1, 1.0, 0.3);  // green
-    } else if (colorRand > 0.7) {
-        baseColor = vec3(1.0, 0.2, 0.1);  // red
-    }
-    
-    vec3 col = baseColor * flicker;
+    vec3 col = vec3(0.8, 0.1, 1.0) * flicker;
     gl_FragColor = vec4(col, 1.0);
 }
 `;
@@ -182,11 +171,11 @@ void main() {
     float logoScale = 0.3;
     float logoHeight = logoScale / u_logoAspect;
     
-    float timeSeed = floor(u_time * 0.15);
+    float timeSeed = floor(u_time * 0.5);
     float intervalRand = fract(sin(timeSeed * 127.1) * 43758.5);
-    float interval = 5.0 + intervalRand * 5.0;
+    float interval = 1.5 + intervalRand * 2.0;
     float flickerPhase = mod(u_time, interval);
-    float flickerDuration = 0.15 + intervalRand * 0.25;
+    float flickerDuration = 0.2 + intervalRand * 0.3;
     float flickerActive = step(interval - flickerDuration, flickerPhase);
     
     float jitterSeed = floor(u_time * 30.0);
