@@ -365,13 +365,107 @@ function hash(p) {
     return ((p3 + p3 * (p3 + 19.19)) * (p3 + p3 * (p3 + 19.19))) % 1.0;
 }
 
+// Audio setup - supersaw chord
+let audioCtx = null;
+let masterGain = null;
+let oscillators = [];
+let glitchGain = null;
+let noiseNode = null;
+let audioStarted = false;
+
+function initAudio() {
+    if (audioStarted) return;
+    audioStarted = true;
+    
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.15;
+    masterGain.connect(audioCtx.destination);
+    
+    // Supersaw chord: D2, A2, D3, F#3, A3 (Dm add9 voicing)
+    const chordFreqs = [73.42, 110, 146.83, 185, 220];
+    const detuneAmounts = [-12, -7, -3, 0, 3, 7, 12]; // 7 saws per note
+    
+    chordFreqs.forEach(freq => {
+        const noteGain = audioCtx.createGain();
+        noteGain.gain.value = 0.08;
+        
+        // Add filter for warmth
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 800;
+        filter.Q.value = 1;
+        filter.connect(noteGain);
+        noteGain.connect(masterGain);
+        
+        detuneAmounts.forEach(detune => {
+            const osc = audioCtx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.value = freq;
+            osc.detune.value = detune;
+            osc.connect(filter);
+            osc.start();
+            oscillators.push(osc);
+        });
+    });
+    
+    // Glitch noise channel
+    glitchGain = audioCtx.createGain();
+    glitchGain.gain.value = 0;
+    const glitchFilter = audioCtx.createBiquadFilter();
+    glitchFilter.type = 'bandpass';
+    glitchFilter.frequency.value = 2000;
+    glitchFilter.Q.value = 5;
+    glitchFilter.connect(glitchGain);
+    glitchGain.connect(masterGain);
+    
+    // White noise buffer
+    const bufferSize = audioCtx.sampleRate * 2;
+    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+    }
+    noiseNode = audioCtx.createBufferSource();
+    noiseNode.buffer = noiseBuffer;
+    noiseNode.loop = true;
+    noiseNode.connect(glitchFilter);
+    noiseNode.start();
+}
+
+function triggerGlitchSound() {
+    if (!audioCtx || !glitchGain) return;
+    const now = audioCtx.currentTime;
+    glitchGain.gain.cancelScheduledValues(now);
+    glitchGain.gain.setValueAtTime(0.3, now);
+    glitchGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+}
+
+// Start audio on user interaction
+document.addEventListener('click', initAudio, { once: true });
+document.addEventListener('touchstart', initAudio, { once: true });
+
 const startTime = performance.now() / 1000;
+let lastGlitchState = false;
 
 function render() {
     const t = performance.now() / 1000 - startTime;
     const aspect = w / h;
     const flicker = 0.75 + 0.25 * hash(Math.sin(t * 5.0));
     const scale = 0.55 + 0.03 * Math.cos(t);
+    
+    // Check for glitch timing (sync with shader logic)
+    const timeSeed = Math.floor(t * 0.25);
+    const intervalRand = (Math.sin(timeSeed * 127.1) * 43758.5) % 1;
+    const interval = 3.0 + Math.abs(intervalRand) * 4.0;
+    const flickerPhase = t % interval;
+    const flickerDuration = 0.15 + Math.abs(intervalRand) * 0.2;
+    const glitchActive = flickerPhase > (interval - flickerDuration);
+    
+    if (glitchActive && !lastGlitchState) {
+        triggerGlitchSound();
+    }
+    lastGlitchState = glitchActive;
     
     // Render pyramid to FBO
     gl.bindFramebuffer(gl.FRAMEBUFFER, fboOrig);
