@@ -540,104 +540,106 @@ function initAudio(e) {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AudioContext();
     
-    // iOS unlock - resume first
-    audioCtx.resume().then(() => {
-        masterGain = audioCtx.createGain();
-        masterGain.gain.value = 0.2;
-        masterGain.connect(audioCtx.destination);
+    // Resume synchronously (required for iOS in user gesture)
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.3;
+    masterGain.connect(audioCtx.destination);
+    
+    // C64 SID-style 8-bit synth
+    const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
+    
+    // Simple delay for space
+    const delay = audioCtx.createDelay(0.5);
+    delay.delayTime.value = 0.3;
+    const delayGain = audioCtx.createGain();
+    delayGain.gain.value = 0.2;
+    delay.connect(delayGain);
+    delayGain.connect(masterGain);
+    
+    // SID arpeggiator state
+    let arpIndex = 0;
+    let arpTime = audioCtx.currentTime;
+    
+    // Bass - pulse wave (square)
+    const bassOsc = audioCtx.createOscillator();
+    bassOsc.type = 'square';
+    bassOsc.frequency.value = chord[0] * 2;
+    const bassGain = audioCtx.createGain();
+    bassGain.gain.value = 0.25;
+    bassOsc.connect(bassGain);
+    bassGain.connect(masterGain);
+    bassOsc.start();
+    oscillators.push(bassOsc);
+    chordOscillators.push(bassOsc);
+    
+    // Lead - pulse wave with arpeggio
+    const leadOsc = audioCtx.createOscillator();
+    leadOsc.type = 'square';
+    leadOsc.frequency.value = chord[0] * 4;
+    const leadGain = audioCtx.createGain();
+    leadGain.gain.value = 0.2;
+    leadOsc.connect(leadGain);
+    leadGain.connect(masterGain);
+    leadGain.connect(delay);
+    leadOsc.start();
+    oscillators.push(leadOsc);
+    chordOscillators.push(leadOsc);
+    
+    // High lead - triangle
+    const highOsc = audioCtx.createOscillator();
+    highOsc.type = 'triangle';
+    highOsc.frequency.value = chord[2] * 8;
+    const highGain = audioCtx.createGain();
+    highGain.gain.value = 0.15;
+    highOsc.connect(highGain);
+    highGain.connect(masterGain);
+    highGain.connect(delay);
+    highOsc.start();
+    oscillators.push(highOsc);
+    chordOscillators.push(highOsc);
+    
+    // SID-style arpeggiator
+    function scheduleArp() {
+        if (!audioCtx) return;
         
-        // C64 SID-style 8-bit synth
-        const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
+        const speed = 60 / currentBpm / 4;
         
-        // Simple delay for space
-        const delay = audioCtx.createDelay(0.5);
-        delay.delayTime.value = 0.3;
-        const delayGain = audioCtx.createGain();
-        delayGain.gain.value = 0.2;
-        delay.connect(delayGain);
-        delayGain.connect(masterGain);
-        
-        // SID arpeggiator state
-        let arpIndex = 0;
-        let arpTime = audioCtx.currentTime;
-        
-        // Bass - pulse wave (square)
-        const bassOsc = audioCtx.createOscillator();
-        bassOsc.type = 'square';
-        bassOsc.frequency.value = chord[0] * 2;
-        const bassGain = audioCtx.createGain();
-        bassGain.gain.value = 0.2;
-        bassOsc.connect(bassGain);
-        bassGain.connect(masterGain);
-        bassOsc.start();
-        oscillators.push(bassOsc);
-        chordOscillators.push(bassOsc);
-        
-        // Lead - pulse wave with arpeggio
-        const leadOsc = audioCtx.createOscillator();
-        leadOsc.type = 'square';
-        leadOsc.frequency.value = chord[0] * 4;
-        const leadGain = audioCtx.createGain();
-        leadGain.gain.value = 0.15;
-        leadOsc.connect(leadGain);
-        leadGain.connect(masterGain);
-        leadGain.connect(delay);
-        leadOsc.start();
-        oscillators.push(leadOsc);
-        chordOscillators.push(leadOsc);
-        
-        // High lead - triangle
-        const highOsc = audioCtx.createOscillator();
-        highOsc.type = 'triangle';
-        highOsc.frequency.value = chord[2] * 8;
-        const highGain = audioCtx.createGain();
-        highGain.gain.value = 0.1;
-        highOsc.connect(highGain);
-        highGain.connect(masterGain);
-        highGain.connect(delay);
-        highOsc.start();
-        oscillators.push(highOsc);
-        chordOscillators.push(highOsc);
-        
-        // SID-style arpeggiator
-        function scheduleArp() {
-            if (!audioCtx) return;
+        while (arpTime < audioCtx.currentTime + 0.1) {
+            const currentChord = minorChords[Math.max(0, lastChordIndex)] || chord;
+            const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
+            const noteIdx = arpIndex % 3;
+            const octave = Math.floor(arpIndex / 3) % 2;
             
-            const speed = 60 / currentBpm / 4;
+            const octMult = currentOctave || 4;
+            const freq = currentChord[noteIdx] * octMult * (octave === 0 ? 1 : 2);
+            leadOsc.frequency.setValueAtTime(freq, arpTime);
+            highOsc.frequency.setValueAtTime(currentChord[(noteIdx + 1) % 3] * octMult * 2, arpTime);
             
-            while (arpTime < audioCtx.currentTime + 0.1) {
-                const currentChord = minorChords[Math.max(0, lastChordIndex)] || chord;
-                const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
-                const noteIdx = arpIndex % 3;
-                const octave = Math.floor(arpIndex / 3) % 2;
-                
-                const octMult = currentOctave || 4;
-                const freq = currentChord[noteIdx] * octMult * (octave === 0 ? 1 : 2);
-                leadOsc.frequency.setValueAtTime(freq, arpTime);
-                highOsc.frequency.setValueAtTime(currentChord[(noteIdx + 1) % 3] * octMult * 2, arpTime);
-                
-                const accent = pattern[arpIndex % 16];
-                if (accent > 0.5) {
-                    leadGain.gain.setValueAtTime(0.18, arpTime);
-                    highGain.gain.setValueAtTime(0.12, arpTime);
-                } else if (accent > 0.1) {
-                    leadGain.gain.setValueAtTime(0.12, arpTime);
-                    highGain.gain.setValueAtTime(0.08, arpTime);
-                } else {
-                    leadGain.gain.setValueAtTime(0.05, arpTime);
-                    highGain.gain.setValueAtTime(0.03, arpTime);
-                }
-                
-                leadGain.gain.exponentialRampToValueAtTime(0.04, arpTime + speed * 0.7);
-                highGain.gain.exponentialRampToValueAtTime(0.02, arpTime + speed * 0.6);
-                
-                arpIndex++;
-                arpTime += speed;
+            const accent = pattern[arpIndex % 16];
+            if (accent > 0.5) {
+                leadGain.gain.setValueAtTime(0.25, arpTime);
+                highGain.gain.setValueAtTime(0.15, arpTime);
+            } else if (accent > 0.1) {
+                leadGain.gain.setValueAtTime(0.15, arpTime);
+                highGain.gain.setValueAtTime(0.1, arpTime);
+            } else {
+                leadGain.gain.setValueAtTime(0.08, arpTime);
+                highGain.gain.setValueAtTime(0.05, arpTime);
             }
-            setTimeout(scheduleArp, 40);
+            
+            leadGain.gain.exponentialRampToValueAtTime(0.05, arpTime + speed * 0.7);
+            highGain.gain.exponentialRampToValueAtTime(0.03, arpTime + speed * 0.6);
+            
+            arpIndex++;
+            arpTime += speed;
         }
-        scheduleArp();
-    });
+        setTimeout(scheduleArp, 40);
+    }
+    scheduleArp();
 }
 
 function triggerGlitchSound() {}
