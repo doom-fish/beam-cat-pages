@@ -259,46 +259,6 @@ void main() {
     }
     col += vec3(0.4, 0.02, 0.6) * logoGlow * 2.0;
     
-    // Subtle dust particles around logo text
-    for (float i = 0.0; i < 80.0; i += 1.0) {
-        float seed = fract(sin(i * 127.1) * 43758.5);
-        float seed2 = fract(sin(i * 269.5) * 43758.5);
-        float seed3 = fract(sin(i * 419.2) * 43758.5);
-        
-        // Dust lifetime
-        float lifetime = 3.0 + seed * 4.0;
-        float phase = fract((u_time + seed * 20.0) / lifetime);
-        float fade = smoothstep(0.0, 0.15, phase) * smoothstep(1.0, 0.6, phase);
-        
-        // Spawn around logo area (not sampling texture)
-        float logoScale = 0.3;
-        float logoHeight = logoScale / u_logoAspect;
-        vec2 spawnPos = vec2(
-            0.5 + (seed - 0.5) * logoScale * 0.9 / u_aspect,
-            0.47 + (seed2 - 0.5) * logoHeight * 0.8
-        );
-        
-        // Gentle dust drift
-        float turbulence = sin(u_time * 1.5 + seed * 10.0) * 0.008 * phase;
-        float riseSpeed = phase * 0.04 * (0.3 + seed3 * 0.7);
-        float spread = (seed - 0.5) * 0.02 * phase;
-        
-        vec2 particlePos = spawnPos + vec2(spread + turbulence, riseSpeed);
-        
-        // Tiny square pixels - aspect corrected
-        float size = 0.0008 + seed3 * 0.0008;
-        vec2 diff = abs(v_uv - particlePos);
-        diff.x *= u_aspect;
-        float particle = step(diff.x, size) * step(diff.y, size);
-        
-        // Subtle twinkle
-        float twinkle = 0.4 + 0.3 * fract(sin(u_time * 2.0 + i * 3.7) * 43758.5);
-        
-        // Dim purple dust color
-        vec3 dustColor = vec3(0.7, 0.5, 0.9);
-        col += dustColor * particle * fade * twinkle * 0.25;
-    }
-    
     
     if (glitchUV.x >= 0.0 && glitchUV.x <= 1.0 && glitchUV.y >= 0.0 && glitchUV.y <= 1.0) {
         vec4 logo = texture2D(u_logo, glitchUV);
