@@ -199,11 +199,11 @@ void main() {
     
     float glitchTime = floor(u_time * 12.0);
     float glitchRand = fract(sin(glitchTime * 43.758) * 12345.6);
-    float glitchActive = step(0.5, glitchRand);
+    float glitchActive = flickerActive * step(0.3, glitchRand);
     
     float sliceY = floor(logoUV.y * 16.0);
     float sliceRand = fract(sin(sliceY * 91.2 + glitchTime) * 43758.5);
-    float sliceOffset = (sliceRand - 0.5) * 0.25 * glitchActive * step(0.4, sliceRand);
+    float sliceOffset = (sliceRand - 0.5) * 0.25 * flickerActive * step(0.4, sliceRand);
     
     vec2 glitchUV = logoUV;
     glitchUV.x += sliceOffset;
