@@ -541,23 +541,26 @@ function initAudio(e) {
     const bpm = 138;
     const sixteenth = 60 / bpm / 4;
     
-    // Classic trance gate patterns (16 steps = 1 bar)
-    // Inspired by Tiesto, Armin, PVD style gates
+    // Exciting trance gate patterns (16 steps = 1 bar)
     const patterns = [
-        // Classic offbeat trance - "1-and-2-and" feel
-        [1, 0, 0.8, 0, 1, 0, 0.8, 0, 1, 0, 0.8, 0, 1, 0, 0.8, 0],
-        // Pumping 4-on-floor with ghost notes
-        [1, 0.2, 0.5, 0.2, 1, 0.2, 0.5, 0.2, 1, 0.2, 0.5, 0.2, 1, 0.2, 0.5, 0.2],
-        // Syncopated uplifting pattern
-        [1, 0, 0.7, 0.3, 0.9, 0, 0.6, 0, 1, 0, 0.7, 0.4, 0.9, 0, 0.8, 0],
-        // Driving 8th notes
-        [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
-        // Breakdown tension builder
-        [1, 0.4, 0.6, 0.4, 0.8, 0.4, 0.6, 0.4, 1, 0.5, 0.7, 0.5, 0.9, 0.5, 0.7, 0.5],
-        // Offbeat emphasis (Dutch style)
-        [0.6, 0, 1, 0, 0.6, 0, 1, 0, 0.6, 0, 1, 0, 0.6, 0, 1, 0],
+        // Rolling triplet feel
+        [1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 0],
+        // Stutter build
+        [1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1],
+        // Syncopated groove
+        [1, 0, 0.5, 1, 0, 0.8, 0, 1, 0.6, 0, 1, 0, 0.7, 1, 0, 0.5],
+        // Galloping rhythm
+        [1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0],
+        // Off-grid shuffle
+        [1, 0, 0.9, 0.3, 0, 1, 0.5, 0, 0.8, 0, 1, 0.4, 0, 0.9, 0.6, 0],
+        // Breakbeat style
+        [1, 0, 0, 0.8, 0, 0, 1, 0, 0, 0.7, 0, 1, 0, 0.6, 0, 0.9],
+        // Driving 16ths with accents
+        [1, 0.4, 0.6, 0.4, 1, 0.5, 0.7, 0.3, 1, 0.4, 0.8, 0.5, 1, 0.6, 0.5, 0.4],
+        // Minimal techno
+        [1, 0, 0, 0, 0.7, 0, 0, 0, 1, 0, 0, 0.5, 0, 0.8, 0, 0],
     ];
-    let pattern = patterns[0];
+    let pattern = patterns[Math.floor(Math.random() * patterns.length)];
     let stepIndex = 0;
     let barCount = 0;
     let nextStepTime = audioCtx.currentTime;
@@ -568,21 +571,23 @@ function initAudio(e) {
         // Schedule ahead for tight timing
         while (nextStepTime < audioCtx.currentTime + 0.1) {
             const baseAccent = pattern[stepIndex % 16];
-            const accent = baseAccent * (0.9 + Math.random() * 0.2);  // Subtle humanize
+            // More random humanization
+            const accent = baseAccent * (0.7 + Math.random() * 0.5);
             
             if (accent > 0.05) {
                 gateGain.gain.setValueAtTime(Math.min(accent, 1), nextStepTime);
-                // Tighter decay for punchy trance feel
-                gateGain.gain.exponentialRampToValueAtTime(0.02, nextStepTime + sixteenth * 0.5);
+                // Varied decay for more character
+                const decay = 0.3 + Math.random() * 0.3;
+                gateGain.gain.exponentialRampToValueAtTime(0.02, nextStepTime + sixteenth * decay);
             }
-            gateGain.gain.setValueAtTime(0, nextStepTime + sixteenth * 0.85);
+            gateGain.gain.setValueAtTime(0, nextStepTime + sixteenth * 0.9);
             
             stepIndex++;
             
-            // Change pattern every 2-4 bars for variation
+            // Change pattern every 1-2 bars for more variation
             if (stepIndex % 16 === 0) {
                 barCount++;
-                if (barCount >= 2 + Math.floor(Math.random() * 3)) {
+                if (barCount >= 1 + Math.floor(Math.random() * 2)) {
                     pattern = patterns[Math.floor(Math.random() * patterns.length)];
                     barCount = 0;
                 }
@@ -590,7 +595,7 @@ function initAudio(e) {
             
             nextStepTime += sixteenth;
         }
-        setTimeout(scheduleGate, 25);  // Tighter scheduling
+        setTimeout(scheduleGate, 25);
     }
     scheduleGate();
     
