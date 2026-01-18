@@ -62,36 +62,65 @@ uniform float u_rotation;  // Accumulated rotation angle (controlled by BPM in J
 uniform float u_touching;  // 1.0 if touching, 0.0 if not
 uniform vec2 u_touch;  // Touch/mouse position (0-1)
 
-// Rodrigues rotation: rotate vector p around axis k by angle theta
-vec3 rotateAxis(vec3 p, vec3 k, float theta) {
-    float c = cos(theta);
-    float s = sin(theta);
-    return p * c + cross(k, p) * s + k * dot(k, p) * (1.0 - c);
+// Quaternion multiplication
+vec4 qmul(vec4 q1, vec4 q2) {
+    return vec4(
+        q1.w * q2.xyz + q2.w * q1.xyz + cross(q1.xyz, q2.xyz),
+        q1.w * q2.w - dot(q1.xyz, q2.xyz)
+    );
+}
+
+// Rotate vector by quaternion
+vec3 qrot(vec4 q, vec3 v) {
+    vec4 qc = vec4(-q.xyz, q.w);
+    return qmul(qmul(q, vec4(v, 0.0)), qc).xyz;
+}
+
+// Create quaternion from axis-angle
+vec4 qaxis(vec3 axis, float angle) {
+    float ha = angle * 0.5;
+    return vec4(axis * sin(ha), cos(ha));
+}
+
+// Slerp between two quaternions
+vec4 qslerp(vec4 q1, vec4 q2, float t) {
+    float d = dot(q1, q2);
+    if (d < 0.0) { q2 = -q2; d = -d; }
+    if (d > 0.9995) return normalize(mix(q1, q2, t));
+    float theta = acos(d);
+    float sintheta = sin(theta);
+    return (q1 * sin((1.0 - t) * theta) + q2 * sin(t * theta)) / sintheta;
 }
 
 void main() {
     vec3 p = a_pos * u_scale * 2.5;
     
-    // Base Y rotation (spin) - angle from JS (accumulated based on BPM)
-    p = rotateAxis(p, vec3(0.0, 1.0, 0.0), u_rotation);
+    // Base Y rotation (spin)
+    vec4 spinQ = qaxis(vec3(0.0, 1.0, 0.0), u_rotation);
+    p = qrot(spinQ, p);
     
-    // Save base position (pointing up, just spinning)
-    vec3 baseP = p;
+    // Identity quaternion (no tilt - pointing up)
+    vec4 identityQ = vec4(0.0, 0.0, 0.0, 1.0);
     
-    // Calculate tilt toward finger - 2D only, no Z/camera push
+    // Calculate tilt quaternion toward finger
     vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
     float dist = length(fingerDir);
     
-    // Tilt angle based on distance from center (max ~45 degrees)
-    float tiltAngle = dist * 0.7 * u_touching;
-    
-    if (tiltAngle > 0.01) {
-        // Tilt axis is perpendicular to finger direction in XY plane
-        // Finger at right (1,0) -> tilt around Z axis rotated 90 degrees -> tilt axis is (0,0,1) cross (1,0,0) = (0,-1,0)... 
-        // Actually: to tilt TOWARD finger, rotate around axis perpendicular to fingerDir
-        vec3 tiltAxis = normalize(vec3(-fingerDir.y, fingerDir.x, 0.0));
-        p = rotateAxis(p, tiltAxis, tiltAngle);
+    vec4 tiltQ = identityQ;
+    if (dist > 0.01) {
+        // Tilt angle: stronger tilt for further finger positions (max ~60 degrees)
+        float tiltAngle = dist * 1.0;
+        
+        // Tilt axis perpendicular to finger direction
+        // fingerDir.x positive (right) -> tilt right -> rotate around Z axis pointing "back"
+        // fingerDir.y positive (down in screen) -> tilt down -> rotate around X axis
+        vec3 tiltAxis = normalize(vec3(fingerDir.y, 0.0, -fingerDir.x));
+        tiltQ = qaxis(tiltAxis, tiltAngle);
     }
+    
+    // Slerp between identity (up) and tilt based on u_touching
+    vec4 finalQ = qslerp(identityQ, tiltQ, u_touching);
+    p = qrot(finalQ, p);
     
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
