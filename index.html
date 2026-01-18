@@ -549,126 +549,121 @@ function initAudio(e) {
     masterGain.gain.value = 0.15;
     masterGain.connect(audioCtx.destination);
     
-    // Trance gate - applies to everything
-    const gateGain = audioCtx.createGain();
-    gateGain.gain.value = 1;
-    gateGain.connect(masterGain);
-    
-    // Gate rhythm - dynamic BPM from accelerometer
-    let stepIndex = 0;
-    let nextStepTime = audioCtx.currentTime;
-    
-    function scheduleGate() {
-        if (!audioCtx) return;
-        
-        const sixteenth = 60 / currentBpm / 4;
-        const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
-        
-        while (nextStepTime < audioCtx.currentTime + 0.1) {
-            const accent = pattern[stepIndex % 16];
-            
-            if (accent > 0.05) {
-                gateGain.gain.setValueAtTime(accent, nextStepTime);
-                gateGain.gain.exponentialRampToValueAtTime(0.02, nextStepTime + sixteenth * 0.4);
-            }
-            gateGain.gain.setValueAtTime(0, nextStepTime + sixteenth * 0.85);
-            
-            stepIndex++;
-            nextStepTime += sixteenth;
-        }
-        setTimeout(scheduleGate, 50);
-    }
-    scheduleGate();
-    
-    // Clean bass - sine sub + saw mid
+    // C64 SID-style 8-bit synth
     const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
     
-    const bassGain = audioCtx.createGain();
-    bassGain.gain.value = 0.3;
+    // Simple delay for space
+    const delay = audioCtx.createDelay(0.5);
+    delay.delayTime.value = 0.3;
+    const delayGain = audioCtx.createGain();
+    delayGain.gain.value = 0.2;
+    delay.connect(delayGain);
+    delayGain.connect(masterGain);
     
-    const bassFilter = audioCtx.createBiquadFilter();
-    bassFilter.type = 'lowpass';
-    bassFilter.frequency.value = 600;
-    bassFilter.Q.value = 4;
-    bassFilter.connect(bassGain);
-    bassGain.connect(gateGain);
+    // SID arpeggiator state
+    let arpIndex = 0;
+    let arpTime = audioCtx.currentTime;
     
-    // Sine sub for warmth
-    const subOsc = audioCtx.createOscillator();
-    subOsc.type = 'sine';
-    subOsc.frequency.value = chord[0] * 2;
-    subOsc.connect(bassFilter);
-    subOsc.start();
-    oscillators.push(subOsc);
-    chordOscillators.push(subOsc);
-    
-    // Saw for presence
+    // Bass - pulse wave (square)
     const bassOsc = audioCtx.createOscillator();
-    bassOsc.type = 'sawtooth';
-    bassOsc.frequency.value = chord[0] * 4;
-    const bassOscGain = audioCtx.createGain();
-    bassOscGain.gain.value = 0.5;
-    bassOsc.connect(bassOscGain);
-    bassOscGain.connect(bassFilter);
+    bassOsc.type = 'square';
+    bassOsc.frequency.value = chord[0];
+    const bassGain = audioCtx.createGain();
+    bassGain.gain.value = 0.15;
+    bassOsc.connect(bassGain);
+    bassGain.connect(masterGain);
     bassOsc.start();
     oscillators.push(bassOsc);
     chordOscillators.push(bassOsc);
     
-    // Supersaw lead - 5 voices
-    const superDetunes = [-30, -10, 0, 10, 30];
-    const panValues = [-0.5, -0.2, 0, 0.2, 0.5];
+    // Lead - pulse wave with arpeggio
+    const leadOsc = audioCtx.createOscillator();
+    leadOsc.type = 'square';
+    leadOsc.frequency.value = chord[0] * 2;
+    const leadGain = audioCtx.createGain();
+    leadGain.gain.value = 0.12;
+    leadOsc.connect(leadGain);
+    leadGain.connect(masterGain);
+    leadGain.connect(delay);
+    leadOsc.start();
+    oscillators.push(leadOsc);
+    chordOscillators.push(leadOsc);
     
-    // Simple delay
-    const reverbGain = audioCtx.createGain();
-    reverbGain.gain.value = 0.2;
-    const delay = audioCtx.createDelay(0.5);
-    delay.delayTime.value = 0.12;
-    const feedback = audioCtx.createGain();
-    feedback.gain.value = 0.25;
-    delay.connect(feedback);
-    feedback.connect(delay);
-    delay.connect(reverbGain);
-    reverbGain.connect(masterGain);
+    // High lead - triangle for SID flavor
+    const highOsc = audioCtx.createOscillator();
+    highOsc.type = 'triangle';
+    highOsc.frequency.value = chord[2] * 4;
+    const highGain = audioCtx.createGain();
+    highGain.gain.value = 0.08;
+    highOsc.connect(highGain);
+    highGain.connect(masterGain);
+    highGain.connect(delay);
+    highOsc.start();
+    oscillators.push(highOsc);
+    chordOscillators.push(highOsc);
     
-    // Lead envelope
-    const leadEnvGain = audioCtx.createGain();
-    leadEnvGain.gain.value = 0.05;
-    leadEnvGain.connect(gateGain);
-    leadEnvGain.connect(delay);  // Send to delay reverb
+    // SID-style arpeggiator
+    function scheduleArp() {
+        if (!audioCtx) return;
+        
+        const speed = 60 / currentBpm / 4;  // 16th notes
+        
+        while (arpTime < audioCtx.currentTime + 0.1) {
+            const currentChord = minorChords[Math.max(0, lastChordIndex)] || chord;
+            const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
+            const noteIdx = arpIndex % 3;
+            const octave = Math.floor(arpIndex / 3) % 2;
+            
+            // Arpeggio pattern
+            const freq = currentChord[noteIdx] * (octave === 0 ? 2 : 4);
+            leadOsc.frequency.setValueAtTime(freq, arpTime);
+            
+            // High note follows
+            highOsc.frequency.setValueAtTime(currentChord[(noteIdx + 1) % 3] * 4, arpTime);
+            
+            // Accent from gate pattern
+            const accent = pattern[arpIndex % 16];
+            if (accent > 0.5) {
+                leadGain.gain.setValueAtTime(0.15, arpTime);
+                highGain.gain.setValueAtTime(0.1, arpTime);
+            } else if (accent > 0.1) {
+                leadGain.gain.setValueAtTime(0.1, arpTime);
+                highGain.gain.setValueAtTime(0.06, arpTime);
+            } else {
+                leadGain.gain.setValueAtTime(0.04, arpTime);
+                highGain.gain.setValueAtTime(0.02, arpTime);
+            }
+            
+            // Quick decay for that punchy 8-bit feel
+            leadGain.gain.exponentialRampToValueAtTime(0.03, arpTime + speed * 0.7);
+            highGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.6);
+            
+            arpIndex++;
+            arpTime += speed;
+        }
+        setTimeout(scheduleArp, 40);
+    }
+    scheduleArp();
     
-    // High shelf for air
-    const highShelf = audioCtx.createBiquadFilter();
-    highShelf.type = 'highshelf';
-    highShelf.frequency.value = 4000;
-    highShelf.gain.value = 4;
-    highShelf.connect(leadEnvGain);
-    
-    // Accelerometer: X = speed (BPM), Y = octave multiplier (more sensitive)
+    // Accelerometer: X = speed (BPM), Y = octave
     function handleMotion(e) {
         if (e.accelerationIncludingGravity) {
-            // X tilt = BPM (80-170) - more sensitive: ±5 range instead of ±10
             const x = e.accelerationIncludingGravity.x || 0;
             const normalizedX = (x + 5) / 10;
-            currentBpm = 80 + Math.max(0, Math.min(1, normalizedX)) * 90;
+            currentBpm = 100 + Math.max(0, Math.min(1, normalizedX)) * 100;
             
-            // Y tilt = octave shift (0.25x to 3x) - more sensitive
             const y = e.accelerationIncludingGravity.y || 0;
             const normalizedY = (y + 5) / 10;
-            const octaveShift = 0.25 + Math.max(0, Math.min(1, normalizedY)) * 2.75;
+            const octaveShift = 0.5 + Math.max(0, Math.min(1, normalizedY)) * 1.5;
             
-            // Apply to all oscillators
+            // Apply octave to bass
             if (chordOscillators.length > 0 && lastChordIndex >= 0) {
-                const chord = minorChords[Math.min(lastChordIndex, minorChords.length - 1)];
-                const now = audioCtx.currentTime;
-                chordOscillators.forEach((osc, i) => {
-                    const baseFreq = (chord[i % chord.length] || chord[0]) * 4;
-                    osc.frequency.setTargetAtTime(baseFreq * octaveShift, now, 0.05);
-                });
+                const currentChord = minorChords[lastChordIndex];
+                bassOsc.frequency.setTargetAtTime(currentChord[0] * octaveShift, audioCtx.currentTime, 0.05);
             }
         }
     }
     
-    // Request permission and add listener
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission()
             .then(response => {
@@ -680,52 +675,6 @@ function initAudio(e) {
     } else if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', handleMotion);
     }
-    
-    let filterLfoPhase = 0;
-    
-    function modulateFilters() {
-        if (!audioCtx) return;
-        
-        filterLfoPhase += 0.015;
-        const lfo = Math.sin(filterLfoPhase) * 0.5 + 0.5;
-        
-        const freq = 600 + lfo * 3500;
-        for (let i = 0; i < leadFilters.length; i++) {
-            leadFilters[i].frequency.value = freq;
-        }
-        setTimeout(modulateFilters, 60);  // Less frequent (was 30)
-    }
-    modulateFilters();
-    
-    chord.forEach((freq, i) => {
-        const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.045;
-        
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 3500 + i * 500;  // Bright cutoff
-        filter.Q.value = 3;  // Higher resonance for sweep
-        filter.connect(noteGain);
-        noteGain.connect(highShelf);
-        leadFilters.push(filter);
-        
-        superDetunes.forEach((detune, j) => {
-            const osc = audioCtx.createOscillator();
-            osc.type = 'sawtooth';
-            osc.frequency.value = freq * 4;  // Two octaves up
-            osc.detune.value = detune + (Math.random() - 0.5) * 5;  // Slight random for thickness
-            
-            // Stereo pan
-            const panner = audioCtx.createStereoPanner();
-            panner.pan.value = panValues[j] || 0;
-            osc.connect(panner);
-            panner.connect(filter);
-            
-            osc.start();
-            oscillators.push(osc);
-            chordOscillators.push(osc);
-        });
-    });
 }
 
 function triggerGlitchSound() {}
@@ -737,24 +686,14 @@ function changeChord(chordIndex) {
     if (chordIndex === lastChordIndex) return;
     lastChordIndex = chordIndex;
     
+    // For C64 style - just update bass, arpeggiator handles the rest
     const chord = minorChords[Math.min(chordIndex, minorChords.length - 1)];
     const now = audioCtx.currentTime;
-    const bassCount = 1;
-    const leadDetuneCount = 5;
     
-    chordOscillators.forEach((osc, i) => {
-        let targetFreq;
-        if (i < bassCount) {
-            targetFreq = chord[0] * 4;
-        } else {
-            const leadIndex = i - bassCount;
-            const noteIndex = Math.floor(leadIndex / leadDetuneCount) % 5;
-            targetFreq = (chord[noteIndex] || chord[0]) * 4;
-        }
-        osc.frequency.cancelScheduledValues(now);
-        osc.frequency.setValueAtTime(osc.frequency.value, now);
-        osc.frequency.exponentialRampToValueAtTime(Math.max(targetFreq, 20), now + 0.15);
-    });
+    // Bass is first oscillator
+    if (chordOscillators[0]) {
+        chordOscillators[0].frequency.setTargetAtTime(chord[0], now, 0.05);
+    }
 }
 
 // Start audio on user interaction
