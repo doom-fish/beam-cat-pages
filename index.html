@@ -71,7 +71,7 @@ void main() {
     // Calculate angle to finger and tilt pyramid to point at it
     float angle = atan(-fingerDir.x, fingerDir.y);  // Inverted to point toward finger
     float dist = length(fingerDir);  // How far from center
-    float tilt = dist * 1.2;  // Tilt amount based on distance (up to ~70 degrees)
+    float tilt = dist * 2.5;  // Full tilt - can go upside down (past 90 degrees)
     
     // Rotation speed scales with BPM (100-160 range mapped to 0.1-0.3)
     float rotSpeed = 0.1 + (u_bpm - 100.0) / 200.0;
