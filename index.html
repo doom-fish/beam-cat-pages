@@ -510,17 +510,20 @@ function handleInteraction(e, triggerGlitch) {
         y = e.clientY / window.innerHeight;
     }
     
-    // Touch X = chord, Y = octave
-    const chordIndex = Math.floor(x * minorChords.length);
-    const octaves = [8, 4, 4, 2];
-    const octaveIdx = Math.floor(y * octaves.length);
-    currentOctave = octaves[Math.min(octaveIdx, octaves.length - 1)];
+    // X = chord in progression (4 chords), Y = octave (0.5, 1, 2)
+    if (window.jamState) {
+        window.jamState.progIndex = Math.floor(x * 4);
+        const octaves = [2, 1, 1, 0.5];  // Top = high, bottom = low
+        window.jamState.octaveShift = octaves[Math.floor(y * 4)];
+    }
+    
+    // Also control pattern with X
+    currentPatternIndex = Math.floor(x * gatePatterns.length);
     
     if (!audioCtx) {
         initAudio(e);
     }
     
-    changeChord(chordIndex);
     if (triggerGlitch) triggerClickGlitch();
 }
 
@@ -554,9 +557,8 @@ function initAudio(e) {
     // SID arpeggiator state
     let arpIndex = 0;
     let arpTime = audioCtx.currentTime;
-    let chordProgIndex = 0;
     
-    // Classic trance chord progression (Am - F - C - G pattern in different keys)
+    // 8-bit chord progression (SID/YM style - only square and triangle)
     const tranceProgression = [
         [146.83, 174.61, 220.00],  // D minor
         [130.81, 164.81, 196.00],  // C major
@@ -564,42 +566,42 @@ function initAudio(e) {
         [116.54, 146.83, 174.61],  // Bb major
     ];
     
-    // Bass - sine for deep sub, quieter
+    // Touch control state (exposed globally)
+    window.jamState = {
+        progIndex: 0,      // X controls chord in progression
+        octaveShift: 1,    // Y controls octave (0.5, 1, 2)
+        filterCutoff: 2000 // Touch modulates filter
+    };
+    
+    // Bass - square wave (SID style)
     const bassOsc = audioCtx.createOscillator();
-    bassOsc.type = 'sine';
+    bassOsc.type = 'square';
     bassOsc.frequency.value = chord[0];
     const bassGain = audioCtx.createGain();
-    bassGain.gain.value = 0.1;
+    bassGain.gain.value = 0.08;
     bassOsc.connect(bassGain);
     bassGain.connect(masterGain);
     bassOsc.start();
     oscillators.push(bassOsc);
-    chordOscillators.push(bassOsc);
     
-    // Trance pad - 3 oscillators for chord
-    const padGain = audioCtx.createGain();
-    padGain.gain.value = 0.12;
-    padGain.connect(masterGain);
-    padGain.connect(delay);
+    // Chord voices - 3 square waves (SID has 3 voices)
+    const chordGain = audioCtx.createGain();
+    chordGain.gain.value = 0.1;
+    chordGain.connect(masterGain);
+    chordGain.connect(delay);
     
-    const padFilter = audioCtx.createBiquadFilter();
-    padFilter.type = 'lowpass';
-    padFilter.frequency.value = 2000;
-    padFilter.Q.value = 2;
-    padFilter.connect(padGain);
-    
-    const padOscs = [];
+    const chordOscs = [];
     for (let i = 0; i < 3; i++) {
         const osc = audioCtx.createOscillator();
-        osc.type = 'sawtooth';
+        osc.type = i === 2 ? 'triangle' : 'square';  // Mix square + triangle
         osc.frequency.value = chord[i] * 2;
-        osc.connect(padFilter);
+        osc.connect(chordGain);
         osc.start();
         oscillators.push(osc);
-        padOscs.push(osc);
+        chordOscs.push(osc);
     }
     
-    // Lead stab - square for punch
+    // Lead - square wave for stabs
     const leadOsc = audioCtx.createOscillator();
     leadOsc.type = 'square';
     leadOsc.frequency.value = chord[0] * 4;
@@ -610,44 +612,43 @@ function initAudio(e) {
     leadGain.connect(delay);
     leadOsc.start();
     oscillators.push(leadOsc);
-    chordOscillators.push(leadOsc);
     
-    // Trance gate scheduler
+    // 8-bit arpeggiator with touch control
     function scheduleArp() {
         if (!audioCtx) return;
         
-        const speed = 60 / currentBpm / 4;  // 16th notes
+        const speed = 60 / currentBpm / 4;
         
         while (arpTime < audioCtx.currentTime + 0.1) {
             const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
             const step = arpIndex % 16;
-            const bar = Math.floor(arpIndex / 16) % 4;
             
-            // Change chord every bar
-            const progChord = tranceProgression[bar];
+            // Use touch-controlled chord from progression
+            const progChord = tranceProgression[window.jamState.progIndex % 4];
+            const octave = window.jamState.octaveShift;
             
-            // Update pad frequencies smoothly
+            // Update chord frequencies
             for (let i = 0; i < 3; i++) {
-                padOscs[i].frequency.setValueAtTime(progChord[i] * 2, arpTime);
+                chordOscs[i].frequency.setValueAtTime(progChord[i] * 2 * octave, arpTime);
             }
             
-            // Bass follows root
-            bassOsc.frequency.setValueAtTime(progChord[0], arpTime);
+            // Bass follows root, one octave down
+            bassOsc.frequency.setValueAtTime(progChord[0] * octave * 0.5, arpTime);
             
-            // Lead stab on accents
+            // Arp pattern on lead
+            const noteIdx = step % 3;
+            const arpOctave = Math.floor(step / 4) % 2;
             const accent = pattern[step];
-            if (accent > 0.7) {
-                leadOsc.frequency.setValueAtTime(progChord[step % 3] * 4, arpTime);
-                leadGain.gain.setValueAtTime(0.15, arpTime);
-                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.5);
-            } else if (accent > 0.3) {
-                leadGain.gain.setValueAtTime(0.08, arpTime);
-                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.3);
-            }
             
-            // Filter sweep per bar
-            const filterFreq = 1500 + Math.sin(arpIndex * 0.1) * 1000;
-            padFilter.frequency.setValueAtTime(filterFreq, arpTime);
+            if (accent > 0.5) {
+                leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 4 * octave * (arpOctave ? 2 : 1), arpTime);
+                leadGain.gain.setValueAtTime(0.12, arpTime);
+                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.6);
+            } else if (accent > 0.2) {
+                leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 4 * octave, arpTime);
+                leadGain.gain.setValueAtTime(0.06, arpTime);
+                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.4);
+            }
             
             arpIndex++;
             arpTime += speed;
@@ -693,14 +694,13 @@ document.addEventListener('touchmove', (e) => {
         y = e.touches[0].clientY / window.innerHeight;
     }
     
-    // X = chord, Y = octave (higher Y = lower octave, inverted)
-    const chordIndex = Math.floor(x * minorChords.length);
-    changeChord(chordIndex);
-    
-    // Y controls octave: top = high (8), bottom = low (2)
-    const octaves = [8, 4, 4, 2];  // 4 zones
-    const octaveIdx = Math.floor(y * octaves.length);
-    currentOctave = octaves[Math.min(octaveIdx, octaves.length - 1)];
+    // X = chord in progression, Y = octave
+    if (window.jamState) {
+        window.jamState.progIndex = Math.floor(x * 4);
+        const octaves = [2, 1, 1, 0.5];
+        window.jamState.octaveShift = octaves[Math.floor(y * 4)];
+    }
+    currentPatternIndex = Math.floor(x * gatePatterns.length);
 }, { passive: false });
 
 const startTime = performance.now() / 1000;
