@@ -510,8 +510,6 @@ function handleInteraction(e, triggerGlitch) {
 }
 
 function initAudio(e) {
-    if (audioStarted) return;  // Don't reinitialize
-    audioStarted = true;
     
     const hint = document.getElementById('sound-hint');
     if (hint) hint.style.opacity = '0';
@@ -544,40 +542,57 @@ function initAudio(e) {
     const sixteenth = 60 / bpm / 4;
     
     // Classic trance gate patterns (16 steps = 1 bar)
+    // Inspired by Tiesto, Armin, PVD style gates
     const patterns = [
+        // Classic offbeat trance - "1-and-2-and" feel
         [1, 0, 0.8, 0, 1, 0, 0.8, 0, 1, 0, 0.8, 0, 1, 0, 0.8, 0],
+        // Pumping 4-on-floor with ghost notes
         [1, 0.2, 0.5, 0.2, 1, 0.2, 0.5, 0.2, 1, 0.2, 0.5, 0.2, 1, 0.2, 0.5, 0.2],
+        // Syncopated uplifting pattern
         [1, 0, 0.7, 0.3, 0.9, 0, 0.6, 0, 1, 0, 0.7, 0.4, 0.9, 0, 0.8, 0],
+        // Driving 8th notes
         [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+        // Breakdown tension builder
+        [1, 0.4, 0.6, 0.4, 0.8, 0.4, 0.6, 0.4, 1, 0.5, 0.7, 0.5, 0.9, 0.5, 0.7, 0.5],
+        // Offbeat emphasis (Dutch style)
+        [0.6, 0, 1, 0, 0.6, 0, 1, 0, 0.6, 0, 1, 0, 0.6, 0, 1, 0],
     ];
     let pattern = patterns[0];
     let stepIndex = 0;
     let barCount = 0;
+    let nextStepTime = audioCtx.currentTime;
     
-    // Simple interval-based gate (more reliable)
-    setInterval(() => {
+    function scheduleGate() {
         if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        const accent = pattern[stepIndex % 16] * (0.9 + Math.random() * 0.2);
         
-        gateGain.gain.cancelScheduledValues(now);
-        if (accent > 0.05) {
-            gateGain.gain.setValueAtTime(Math.min(accent, 1), now);
-            gateGain.gain.exponentialRampToValueAtTime(0.02, now + sixteenth * 0.5);
-            gateGain.gain.setValueAtTime(0, now + sixteenth * 0.85);
-        } else {
-            gateGain.gain.setValueAtTime(0, now);
-        }
-        
-        stepIndex++;
-        if (stepIndex % 16 === 0) {
-            barCount++;
-            if (barCount >= 2 + Math.floor(Math.random() * 3)) {
-                pattern = patterns[Math.floor(Math.random() * patterns.length)];
-                barCount = 0;
+        // Schedule ahead for tight timing
+        while (nextStepTime < audioCtx.currentTime + 0.1) {
+            const baseAccent = pattern[stepIndex % 16];
+            const accent = baseAccent * (0.9 + Math.random() * 0.2);  // Subtle humanize
+            
+            if (accent > 0.05) {
+                gateGain.gain.setValueAtTime(Math.min(accent, 1), nextStepTime);
+                // Tighter decay for punchy trance feel
+                gateGain.gain.exponentialRampToValueAtTime(0.02, nextStepTime + sixteenth * 0.5);
             }
+            gateGain.gain.setValueAtTime(0, nextStepTime + sixteenth * 0.85);
+            
+            stepIndex++;
+            
+            // Change pattern every 2-4 bars for variation
+            if (stepIndex % 16 === 0) {
+                barCount++;
+                if (barCount >= 2 + Math.floor(Math.random() * 3)) {
+                    pattern = patterns[Math.floor(Math.random() * patterns.length)];
+                    barCount = 0;
+                }
+            }
+            
+            nextStepTime += sixteenth;
         }
-    }, sixteenth * 1000);
+        setTimeout(scheduleGate, 25);  // Tighter scheduling
+    }
+    scheduleGate();
     
     // 303-style acid bass - sawtooth with resonant filter sweeps
     const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
@@ -778,8 +793,8 @@ function changeChordAndOctave(x, y) {
     const octaveMult = octaveMultipliers[Math.min(octaveIndex, octaveMultipliers.length - 1)];
     
     const now = audioCtx.currentTime;
-    const bassCount = 1;  // Single 303 bass oscillator
-    const leadDetuneCount = 9;  // 9 voice unison
+    const bassCount = 2;
+    const leadDetuneCount = 7;
     
     chordOscillators.forEach((osc, i) => {
         let targetFreq;
