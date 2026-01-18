@@ -1017,6 +1017,9 @@ document.addEventListener('touchstart', (e) => {
     let y = e.touches[0].clientY / window.innerHeight;
     touchPos.x = x;
     touchPos.y = y;
+    // Snap smoothTouchPos to new position immediately
+    smoothTouchPos.x = x;
+    smoothTouchPos.y = y;
     
     // Same grid controls as touchmove
     const gridX = Math.floor(x * 4);
@@ -1040,6 +1043,9 @@ document.addEventListener('mousedown', (e) => {
     let y = e.clientY / window.innerHeight;
     touchPos.x = x;
     touchPos.y = y;
+    // Snap smoothTouchPos to new position immediately
+    smoothTouchPos.x = x;
+    smoothTouchPos.y = y;
     
     // Same grid controls as mousemove
     const gridX = Math.floor(x * 4);
