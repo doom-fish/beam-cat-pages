@@ -814,13 +814,20 @@ function initAudio(e) {
     hatGain.connect(masterGain);
     hatNoise.start();
     
-    // 8-bit arpeggiator with touch control and swing
+    // 8-bit arpeggiator with touch control
     function scheduleArp() {
         if (!audioCtx) return;
         
         const baseSpeed = 60 / currentBpm / 4;
+        const now = audioCtx.currentTime;
         
-        while (arpTime < audioCtx.currentTime + 0.1) {
+        // Only schedule if we're not too far ahead - prevents automation buildup
+        if (arpTime > now + 0.2) {
+            setTimeout(scheduleArp, 50);
+            return;
+        }
+        
+        while (arpTime < now + 0.1) {
             const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
             const step = arpIndex % 16;
             
@@ -841,6 +848,7 @@ function initAudio(e) {
             const padPatternIdx = (currentPatternIndex + 3) % gatePatterns.length;
             const padPattern = gatePatterns[padPatternIdx];
             const chordAccent = padPattern[step];
+            chordGain.gain.cancelScheduledValues(arpTime);
             if (chordAccent > 0.1) {
                 chordGain.gain.setValueAtTime(0.07 * chordAccent, arpTime);
                 chordGain.gain.exponentialRampToValueAtTime(0.015, arpTime + speed * 0.7);
@@ -852,6 +860,7 @@ function initAudio(e) {
             const triPatternIdx = (currentPatternIndex + 5) % gatePatterns.length;
             const triPattern = gatePatterns[triPatternIdx];
             const triAccent = triPattern[step];
+            triangleGain.gain.cancelScheduledValues(arpTime);
             if (triAccent > 0.5) {
                 triangleGain.gain.setValueAtTime(0.1, arpTime);
                 triangleGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.6);
@@ -864,6 +873,7 @@ function initAudio(e) {
             bassOsc.frequency.setValueAtTime(progChord[0] * octave * 0.25, arpTime);
             const bassPattern = [1, 0, 0.7, 0, 1, 0.5, 0, 0.8, 1, 0, 0.6, 0, 1, 0, 0.7, 0.5];
             const bassAccent = bassPattern[step];
+            bassGain.gain.cancelScheduledValues(arpTime);
             if (bassAccent > 0.5) {
                 bassGain.gain.setValueAtTime(0.05, arpTime + swing);
                 bassGain.gain.exponentialRampToValueAtTime(0.01, arpTime + swing + speed * 0.8);
@@ -898,6 +908,8 @@ function initAudio(e) {
             
             const leadFreq = progChord[noteIdx] * 2 * octave * (arpOctave ? 2 : 1);
             const noteTime = arpTime + swing;  // Apply swing timing
+            leadGain.gain.cancelScheduledValues(noteTime);
+            leadGain2.gain.cancelScheduledValues(noteTime);
             if (accent > 0.5) {
                 leadOsc.frequency.setValueAtTime(leadFreq, noteTime);
                 leadOsc2.frequency.setValueAtTime(leadFreq * 2, noteTime);  // Octave up for 8-bit
@@ -952,6 +964,7 @@ function initAudio(e) {
                 ];
                 
                 if (kickPatterns[drumPatternIdx][step]) {
+                    kickGain.gain.cancelScheduledValues(arpTime);
                     kickOsc.frequency.setValueAtTime(150, arpTime);
                     kickOsc.frequency.exponentialRampToValueAtTime(40, arpTime + 0.1);
                     kickGain.gain.setValueAtTime(0.12 * drumVol, arpTime);
@@ -960,12 +973,14 @@ function initAudio(e) {
                 
                 if (snarePatterns[drumPatternIdx][step]) {
                     // Snare - noise burst
+                    snareGain.gain.cancelScheduledValues(arpTime);
                     snareGain.gain.setValueAtTime(0.1 * drumVol, arpTime);
                     snareGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.1);
                 }
                 
                 if (hatPatterns[drumPatternIdx][step]) {
                     // Hi-hat - high freq noise, velocity based on pattern
+                    hatGain.gain.cancelScheduledValues(arpTime);
                     const hatVel = (step % 4 === 0) ? 0.05 : 0.03;
                     hatGain.gain.setValueAtTime(hatVel * drumVol, arpTime);
                     hatGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.05);
