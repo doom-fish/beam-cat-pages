@@ -79,11 +79,14 @@ void main() {
     vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
     float dist = length(fingerDir);
     
-    if (dist > 0.05) {
+    // Only apply tilt if actually touching AND away from center
+    // When u_touching is 0, skip entirely = pure up direction
+    if (u_touching > 0.02 && dist > 0.02) {
         // Target direction: finger position + outward toward camera
         vec3 up = vec3(0.0, 1.0, 0.0);
-        float cameraZ = 0.3 + dist * 0.5;
-        vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, cameraZ));
+        // Camera tilt also scales with touching
+        float cameraZ = (0.3 + dist * 0.5) * u_touching;
+        vec3 target = normalize(vec3(fingerDir.x * u_aspect * u_touching, -fingerDir.y * u_touching, max(cameraZ, 0.01)));
         
         // Rotation axis perpendicular to both
         vec3 axis = cross(up, target);
@@ -92,8 +95,7 @@ void main() {
         if (axisLen > 0.001) {
             axis = normalize(axis);
             float angle = acos(clamp(dot(up, target), -1.0, 1.0));
-            // u_touching scales tilt: 1.0 = full tilt, 0.0 = no tilt (up)
-            p = rotateAxis(p, axis, angle * u_touching);
+            p = rotateAxis(p, axis, angle);
         }
     }
     
