@@ -509,6 +509,9 @@ function handleInteraction(e, triggerGlitch) {
         y = e.clientY / window.innerHeight;
     }
     
+    // X position controls gate pattern
+    currentPatternIndex = Math.floor(x * gatePatterns.length);
+    
     if (!audioStarted) {
         initAudio(e);
         setTimeout(() => {
@@ -523,7 +526,12 @@ function handleInteraction(e, triggerGlitch) {
     }
 }
 
+let audioInitialized = false;
+
 function initAudio(e) {
+    if (audioInitialized) return;  // Only init once!
+    audioInitialized = true;
+    audioStarted = true;
     
     const hint = document.getElementById('sound-hint');
     if (hint) hint.style.opacity = '0';
@@ -546,135 +554,127 @@ function initAudio(e) {
     masterGain.gain.value = 0.15;
     masterGain.connect(audioCtx.destination);
     
-    // No gate - solid sustained tones
+    // Gate with touch X = pattern, accelerometer = speed/octave
     const gateGain = audioCtx.createGain();
     gateGain.gain.value = 1;
     gateGain.connect(masterGain);
     
-    // 303-style acid bass - sawtooth with resonant filter sweeps
+    let stepIndex = 0;
+    let nextStepTime = audioCtx.currentTime;
+    let gateRunning = false;
+    
+    function scheduleGate() {
+        if (!audioCtx || gateRunning) return;
+        gateRunning = true;
+        
+        function tick() {
+            if (!audioCtx) return;
+            
+            const sixteenth = 60 / currentBpm / 4;
+            const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
+            const now = audioCtx.currentTime;
+            
+            // Schedule 100ms ahead
+            while (nextStepTime < now + 0.1) {
+                const accent = pattern[stepIndex % 16];
+                if (accent > 0.05) {
+                    gateGain.gain.setValueAtTime(accent, nextStepTime);
+                    gateGain.gain.exponentialRampToValueAtTime(0.02, nextStepTime + sixteenth * 0.4);
+                }
+                gateGain.gain.setValueAtTime(0, nextStepTime + sixteenth * 0.9);
+                stepIndex++;
+                nextStepTime += sixteenth;
+            }
+            setTimeout(tick, 50);
+        }
+        tick();
+    }
+    scheduleGate();
+    
+    // 303-style acid bass - sawtooth with resonant filter
     const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
     
-    // Single 303 bass note (root only)
     const bassGain = audioCtx.createGain();
-    bassGain.gain.value = 0.25;
+    bassGain.gain.value = 0.3;
     
     const bassFilter = audioCtx.createBiquadFilter();
     bassFilter.type = 'lowpass';
-    bassFilter.frequency.value = 800;  // Start frequency
-    bassFilter.Q.value = 15;  // High resonance for squelch
+    bassFilter.frequency.value = 800;
+    bassFilter.Q.value = 12;
     bassFilter.connect(bassGain);
     bassGain.connect(gateGain);
     
     const bassOsc = audioCtx.createOscillator();
     bassOsc.type = 'sawtooth';
-    bassOsc.frequency.value = chord[0] * 4;  // Octave up for audibility
+    bassOsc.frequency.value = chord[0] * 4;
     bassOsc.connect(bassFilter);
     bassOsc.start();
     oscillators.push(bassOsc);
     chordOscillators.push(bassOsc);
     
-    // Filter sweep synced to gate
-    function sweepFilter() {
-        if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        bassFilter.frequency.cancelScheduledValues(now);
-        bassFilter.frequency.setValueAtTime(1200, now);  // Start high
-        bassFilter.frequency.exponentialRampToValueAtTime(200, now + sixteenth * 0.8);  // Sweep down
-        setTimeout(sweepFilter, sixteenth * 1000);
-    }
-    sweepFilter();
+    // No bass filter sweep - performance optimization
     
-    // Classic trance supersaw lead - wide stereo, bright, with pluck
-    const superDetunes = [-40, -25, -15, -7, 0, 7, 15, 25, 40];  // 9 voice unison
+    // Classic trance supersaw lead - reduced voices for performance
+    const superDetunes = [-35, -15, 0, 15, 35];  // 5 voice unison (was 9)
     
     // Stereo widener via slight pan
-    const panValues = [-0.8, -0.5, -0.2, 0, 0, 0, 0.2, 0.5, 0.8];
+    const panValues = [-0.7, -0.3, 0, 0.3, 0.7];
     
-    // Convolution reverb using impulse response
+    // Simple delay reverb for performance (no convolution)
     const reverbGain = audioCtx.createGain();
-    reverbGain.gain.value = 0.3;  // Wet level
-    const reverbConv = audioCtx.createConvolver();
-    
-    // Generate simple reverb impulse
-    const reverbLen = audioCtx.sampleRate * 2;  // 2 second tail
-    const reverbBuffer = audioCtx.createBuffer(2, reverbLen, audioCtx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-        const data = reverbBuffer.getChannelData(ch);
-        for (let i = 0; i < reverbLen; i++) {
-            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.5));
-        }
-    }
-    reverbConv.buffer = reverbBuffer;
-    reverbConv.connect(reverbGain);
+    reverbGain.gain.value = 0.2;
+    const reverbDelay = audioCtx.createDelay(1);
+    reverbDelay.delayTime.value = 0.3;
+    reverbDelay.connect(reverbGain);
     reverbGain.connect(masterGain);
     
-    // Lead envelope - plucky attack
+    // Lead envelope
     const leadEnvGain = audioCtx.createGain();
-    leadEnvGain.gain.value = 0.04;
+    leadEnvGain.gain.value = 0.05;
     leadEnvGain.connect(gateGain);
-    leadEnvGain.connect(reverbConv);  // Send to reverb
+    leadEnvGain.connect(reverbDelay);  // Send to delay reverb
     
     // High shelf for air
     const highShelf = audioCtx.createBiquadFilter();
     highShelf.type = 'highshelf';
     highShelf.frequency.value = 4000;
-    highShelf.gain.value = 6;
+    highShelf.gain.value = 4;
     highShelf.connect(leadEnvGain);
     
-    // Accelerometer-controlled filter + fallback LFO
-    let accelValue = 0.5;  // 0-1 range
-    let hasAccel = false;
-    let filterLfoPhase = 0;
-    
-    // Request accelerometer permission (iOS 13+)
+    // Accelerometer controls speed (X) and octave (Y)
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission().then(response => {
             if (response === 'granted') {
-                hasAccel = true;
                 window.addEventListener('devicemotion', handleMotion);
             }
         }).catch(() => {});
     } else if (window.DeviceMotionEvent) {
-        hasAccel = true;
         window.addEventListener('devicemotion', handleMotion);
     }
     
     function handleMotion(e) {
         if (e.accelerationIncludingGravity) {
-            // Use X and Z tilt combined, normalize to 0-1
+            // X tilt = BPM (80-160)
             const x = e.accelerationIncludingGravity.x || 0;
-            const z = e.accelerationIncludingGravity.z || 0;
-            const tilt = Math.sqrt(x * x + z * z) / 15;  // Normalize ~0-1
-            accelValue = Math.max(0, Math.min(1, tilt));
+            currentBpm = 80 + Math.max(0, Math.min(1, (x + 10) / 20)) * 80;
+            
+            // Y tilt = filter cutoff
+            const y = e.accelerationIncludingGravity.y || 0;
+            const filterVal = Math.max(0, Math.min(1, (y + 10) / 20));
+            leadFilters.forEach(f => {
+                f.frequency.value = 500 + filterVal * 4000;
+            });
         }
     }
-    
-    function modulateFilters() {
-        if (!audioCtx) return;
-        
-        let lfo;
-        if (hasAccel) {
-            lfo = accelValue;  // Use accelerometer
-        } else {
-            filterLfoPhase += 0.02;
-            lfo = Math.sin(filterLfoPhase) * 0.5 + 0.5;  // Fallback sine LFO
-        }
-        
-        leadFilters.forEach((f, i) => {
-            f.frequency.value = 800 + lfo * 4000;  // Sweep 800-4800Hz
-        });
-        setTimeout(modulateFilters, 30);
-    }
-    modulateFilters();
     
     chord.forEach((freq, i) => {
         const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.035;
+        noteGain.gain.value = 0.04;
         
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 3500 + i * 500;  // Bright cutoff
-        filter.Q.value = 3;  // Higher resonance for sweep
+        filter.frequency.value = 2500;
+        filter.Q.value = 2;
         filter.connect(noteGain);
         noteGain.connect(highShelf);
         leadFilters.push(filter);
@@ -697,31 +697,11 @@ function initAudio(e) {
         });
     });
     
-    // Glitch noise
-    glitchGain = audioCtx.createGain();
-    glitchGain.gain.value = 0;
-    const glitchFilter = audioCtx.createBiquadFilter();
-    glitchFilter.type = 'bandpass';
-    glitchFilter.frequency.value = 1500;
-    glitchFilter.Q.value = 8;
-    glitchFilter.connect(glitchGain);
-    glitchGain.connect(masterGain);
-    
-    const bufferSize = audioCtx.sampleRate * 2;
-    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1;
-    }
-    noiseNode = audioCtx.createBufferSource();
-    noiseNode.buffer = noiseBuffer;
-    noiseNode.loop = true;
-    noiseNode.connect(glitchFilter);
-    noiseNode.start();
+    // No glitch noise - performance optimization
 }
 
 function triggerGlitchSound() {
-    // Disabled - no glitch sound
+    // Disabled
 }
 
 let lastChordIndex = -1;
