@@ -58,6 +58,7 @@ attribute vec3 a_pos;
 uniform float u_time;
 uniform float u_aspect;
 uniform float u_scale;
+uniform float u_bpm;    // Current BPM for rotation speed
 uniform vec2 u_touch;  // Touch/mouse position (0-1)
 
 void main() {
@@ -67,12 +68,14 @@ void main() {
     // Calculate direction to finger (in screen space)
     vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
     
-    // Tilt pyramid so apex points toward finger
-    float tiltX = -fingerDir.y * 0.5;  // Tilt forward/back based on Y
-    float tiltZ = fingerDir.x * 0.5;   // Tilt left/right based on X
+    // Calculate angle to finger and tilt pyramid to point at it
+    float angle = atan(fingerDir.x, -fingerDir.y);  // Angle from up direction
+    float dist = length(fingerDir);  // How far from center
+    float tilt = dist * 1.2;  // Tilt amount based on distance (up to ~70 degrees)
     
-    // Base slow rotation
-    float rotY = t * 0.15;
+    // Rotation speed scales with BPM (100-160 range mapped to 0.1-0.3)
+    float rotSpeed = 0.1 + (u_bpm - 100.0) / 200.0;
+    float rotY = t * rotSpeed;
     float cy = cos(rotY), sy = sin(rotY);
     
     // Apply base Y rotation first
@@ -80,17 +83,22 @@ void main() {
     float z = p.x * sy + p.z * cy;
     p.x = x; p.z = z;
     
-    // Tilt X (forward/back) - apex looks up/down
-    float cx = cos(tiltX), sx = sin(tiltX);
-    float y = p.y * cx - p.z * sx;
-    z = p.y * sx + p.z * cx;
+    // Rotate around Y to face finger direction
+    float ca = cos(angle), sa = sin(angle);
+    x = p.x * ca - p.z * sa;
+    z = p.x * sa + p.z * ca;
+    p.x = x; p.z = z;
+    
+    // Tilt forward toward finger
+    float ct = cos(tilt), st = sin(tilt);
+    float y = p.y * ct - p.z * st;
+    z = p.y * st + p.z * ct;
     p.y = y; p.z = z;
     
-    // Tilt Z (left/right) - apex leans sideways
-    float cz = cos(tiltZ), sz = sin(tiltZ);
-    x = p.x * cz - p.y * sz;
-    y = p.x * sz + p.y * cz;
-    p.x = x; p.y = y;
+    // Rotate back
+    x = p.x * ca + p.z * sa;
+    z = -p.x * sa + p.z * ca;
+    p.x = x; p.z = z;
     
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
@@ -960,6 +968,7 @@ function render() {
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_aspect'), aspect);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_scale'), scale);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_flicker'), flicker);
+    gl.uniform1f(gl.getUniformLocation(octaProg, 'u_bpm'), currentBpm);
     
     // Smooth interpolation toward touch position
     const targetX = isTouching ? touchPos.x : 0.5;
