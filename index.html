@@ -71,28 +71,26 @@ vec3 rotateAxis(vec3 p, vec3 k, float theta) {
 void main() {
     vec3 p = a_pos * u_scale * 2.5;
     
-    // Start with pyramid pointing toward user (tilt 90 degrees forward)
-    p = rotateAxis(p, vec3(1.0, 0.0, 0.0), 1.5708);  // 90 degrees = pi/2
-    
     // Base Y rotation (spin) - angle from JS (accumulated based on BPM)
-    p = rotateAxis(p, vec3(0.0, 0.0, 1.0), u_rotation);  // Spin around Z (facing user)
+    p = rotateAxis(p, vec3(0.0, 1.0, 0.0), u_rotation);
     
     // Tilt toward finger using axis-angle
     vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
     float dist = length(fingerDir);
     
     if (dist > 0.01) {
-        // Target direction: finger position mapped to 3D direction
-        vec3 forward = vec3(0.0, 0.0, 1.0);  // Resting = pointing at user
-        vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, 0.5));
+        // Target direction: finger position + outward toward camera
+        vec3 up = vec3(0.0, 1.0, 0.0);  // Resting = pointing up
+        // Add positive Z to tilt toward camera, scaled by distance
+        vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, 0.3 + dist * 0.5));
         
         // Rotation axis perpendicular to both
-        vec3 axis = cross(forward, target);
+        vec3 axis = cross(up, target);
         float axisLen = length(axis);
         
         if (axisLen > 0.001) {
             axis = normalize(axis);
-            float angle = acos(clamp(dot(forward, target), -1.0, 1.0));
+            float angle = acos(clamp(dot(up, target), -1.0, 1.0));
             p = rotateAxis(p, axis, angle);
         }
     }
@@ -953,7 +951,9 @@ document.addEventListener('touchmove', (e) => {
         window.jamState.swingAmount = gridY * 0.1;
     }
     currentBpm = 100 + x * 60;
-    currentPatternIndex = gridX * 2;
+    // Diagonal cells get different patterns (0,0), (1,1), (2,2), (3,3)
+    const isDiagonal = (gridX === gridY);
+    currentPatternIndex = isDiagonal ? (gridX * 3 + 7) : (gridX * 2);
 }, { passive: false });
 
 const startTime = performance.now() / 1000;
@@ -1001,7 +1001,7 @@ function render() {
     const now = performance.now() / 1000;
     const deltaTime = lastFrameTime ? (now - lastFrameTime) : 0.016;
     lastFrameTime = now;
-    const rotSpeed = 0.2 + (currentBpm - 100) / 40;  // 100 BPM = 0.2 rad/s, 160 BPM = 1.7 rad/s
+    const rotSpeed = 0.05 + (currentBpm - 100) / 60;  // 100 BPM = 0.05 rad/s (super slow), 160 BPM = 1.05 rad/s
     pyramidRotation += deltaTime * rotSpeed;
     
     // Render pyramid to FBO
