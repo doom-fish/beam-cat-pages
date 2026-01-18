@@ -512,26 +512,32 @@ function handleInteraction(e, triggerGlitch) {
         y = e.clientY / window.innerHeight;
     }
     
-    // Grid position determines glitch mode (2x2 grid = 4 modes)
-    const newGlitchMode = Math.floor(x * 2) + Math.floor(y * 2) * 2;
+    // Grid position determines effects (4x4 grid = 16 cells)
+    const gridX = Math.floor(x * 4);
+    const gridY = Math.floor(y * 4);
+    const newGlitchMode = gridX + gridY * 4;
     if (newGlitchMode !== glitchMode) {
         glitchMode = newGlitchMode;
-        clickGlitch = 1.0;  // Trigger glitch on mode change
+        clickGlitch = 0.8;  // Trigger glitch on cell change
     }
     
-    // Jam controls
+    // Jam controls based on 4x4 grid
     if (window.jamState) {
         // X = chord (4 chords across screen)
-        window.jamState.progIndex = Math.floor(x * 4);
+        window.jamState.progIndex = gridX;
         // Y = octave (top high, bottom low) 
         const octaves = [2, 1.5, 1, 0.5];
-        window.jamState.octaveShift = octaves[Math.floor(y * 4)];
-        // X also controls BPM slightly (120-160)
-        currentBpm = 120 + x * 40;
+        window.jamState.octaveShift = octaves[gridY];
+        // Grid cell affects multiple parameters
+        window.jamState.filterMod = (gridX + gridY) / 6;  // 0-1 filter intensity
+        window.jamState.swingAmount = gridY * 0.1;  // Swing on lower rows
     }
     
-    // Pattern changes with X position
-    currentPatternIndex = Math.floor(x * gatePatterns.length);
+    // BPM varies with X (100-160)
+    currentBpm = 100 + x * 60;
+    
+    // Pattern changes with grid X
+    currentPatternIndex = gridX * 2;  // 8 patterns across 4 columns
     
     if (!audioCtx) {
         initAudio(e);
@@ -794,21 +800,25 @@ document.addEventListener('touchmove', (e) => {
         y = e.touches[0].clientY / window.innerHeight;
     }
     
-    // Grid glitch on quadrant change
-    const newGlitchMode = Math.floor(x * 2) + Math.floor(y * 2) * 2;
+    // 4x4 grid glitch on cell change
+    const gridX = Math.floor(x * 4);
+    const gridY = Math.floor(y * 4);
+    const newGlitchMode = gridX + gridY * 4;
     if (newGlitchMode !== glitchMode) {
         glitchMode = newGlitchMode;
-        clickGlitch = 0.8;  // Glitch on move across grid
+        clickGlitch = 0.6;  // Glitch on cell change
     }
     
     // Jam controls - real-time updates
     if (window.jamState) {
-        window.jamState.progIndex = Math.floor(x * 4);
+        window.jamState.progIndex = gridX;
         const octaves = [2, 1.5, 1, 0.5];
-        window.jamState.octaveShift = octaves[Math.floor(y * 4)];
-        currentBpm = 120 + x * 40;
+        window.jamState.octaveShift = octaves[gridY];
+        window.jamState.filterMod = (gridX + gridY) / 6;
+        window.jamState.swingAmount = gridY * 0.1;
     }
-    currentPatternIndex = Math.floor(x * gatePatterns.length);
+    currentBpm = 100 + x * 60;
+    currentPatternIndex = gridX * 2;
 }, { passive: false });
 
 const startTime = performance.now() / 1000;
