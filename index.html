@@ -783,9 +783,9 @@ function changeChord(chordIndex) {
 document.addEventListener('click', (e) => handleInteraction(e, true));
 document.addEventListener('touchend', (e) => handleInteraction(e, true));
 document.addEventListener('touchstart', (e) => {
-    e.preventDefault();
+    // Don't preventDefault here - breaks iOS audio init
     handleInteraction(e, false);  // Immediate response on touch
-}, { passive: false });
+});
 document.addEventListener('touchmove', (e) => {
     e.preventDefault();
     let x = 0.5, y = 0.5;
