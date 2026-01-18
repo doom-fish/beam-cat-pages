@@ -463,12 +463,14 @@ function hash(p) {
 // Audio setup - supersaw chord
 let audioCtx = null;
 let masterGain = null;
+let gateGain = null;  // Global gate
 let oscillators = [];
 let chordOscillators = [];
 let leadFilters = [];
 let glitchGain = null;
 let noiseNode = null;
 let audioStarted = false;
+let audioInitialized = false;  // Separate flag for full init
 let clickGlitch = 0;
 
 // Minor chords from D minor scale - sub bass octave
@@ -510,6 +512,9 @@ function handleInteraction(e, triggerGlitch) {
 }
 
 function initAudio(e) {
+    if (audioInitialized) return;  // Only init once
+    audioInitialized = true;
+    audioStarted = true;
     
     const hint = document.getElementById('sound-hint');
     if (hint) hint.style.opacity = '0';
@@ -532,8 +537,8 @@ function initAudio(e) {
     masterGain.gain.value = 0.15;
     masterGain.connect(audioCtx.destination);
     
-    // Trance gate - applies to everything
-    const gateGain = audioCtx.createGain();
+    // Trance gate - applies to everything (global, never restart)
+    gateGain = audioCtx.createGain();
     gateGain.gain.value = 1;
     gateGain.connect(masterGain);
     
