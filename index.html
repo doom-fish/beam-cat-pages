@@ -613,6 +613,52 @@ function initAudio(e) {
     leadOsc.start();
     oscillators.push(leadOsc);
     
+    // 8-bit drums
+    // Kick - square wave with pitch envelope
+    const kickOsc = audioCtx.createOscillator();
+    kickOsc.type = 'square';
+    kickOsc.frequency.value = 40;
+    const kickGain = audioCtx.createGain();
+    kickGain.gain.value = 0;
+    kickOsc.connect(kickGain);
+    kickGain.connect(masterGain);
+    kickOsc.start();
+    oscillators.push(kickOsc);
+    
+    // Snare/Hat - noise source
+    const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.5, audioCtx.sampleRate);
+    const noiseData = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < noiseData.length; i++) {
+        noiseData[i] = Math.random() * 2 - 1;
+    }
+    
+    const snareNoise = audioCtx.createBufferSource();
+    snareNoise.buffer = noiseBuffer;
+    snareNoise.loop = true;
+    const snareFilter = audioCtx.createBiquadFilter();
+    snareFilter.type = 'bandpass';
+    snareFilter.frequency.value = 3000;
+    snareFilter.Q.value = 1;
+    const snareGain = audioCtx.createGain();
+    snareGain.gain.value = 0;
+    snareNoise.connect(snareFilter);
+    snareFilter.connect(snareGain);
+    snareGain.connect(masterGain);
+    snareNoise.start();
+    
+    const hatNoise = audioCtx.createBufferSource();
+    hatNoise.buffer = noiseBuffer;
+    hatNoise.loop = true;
+    const hatFilter = audioCtx.createBiquadFilter();
+    hatFilter.type = 'highpass';
+    hatFilter.frequency.value = 8000;
+    const hatGain = audioCtx.createGain();
+    hatGain.gain.value = 0;
+    hatNoise.connect(hatFilter);
+    hatFilter.connect(hatGain);
+    hatGain.connect(masterGain);
+    hatNoise.start();
+    
     // 8-bit arpeggiator with touch control
     function scheduleArp() {
         if (!audioCtx) return;
@@ -648,6 +694,32 @@ function initAudio(e) {
                 leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 4 * octave, arpTime);
                 leadGain.gain.setValueAtTime(0.06, arpTime);
                 leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.4);
+            }
+            
+            // 8-bit drums - kick on 1 and 9, snare on 5 and 13, hats on others
+            // Drums come in after 32 steps (2 bars)
+            if (arpIndex > 32) {
+                const drumVol = Math.min(1, (arpIndex - 32) / 32);  // Fade in
+                
+                if (step === 0 || step === 8) {
+                    // Kick - low square pitch drop
+                    kickOsc.frequency.setValueAtTime(150, arpTime);
+                    kickOsc.frequency.exponentialRampToValueAtTime(40, arpTime + 0.1);
+                    kickGain.gain.setValueAtTime(0.15 * drumVol, arpTime);
+                    kickGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.15);
+                }
+                
+                if (step === 4 || step === 12) {
+                    // Snare - noise burst
+                    snareGain.gain.setValueAtTime(0.1 * drumVol, arpTime);
+                    snareGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.1);
+                }
+                
+                if (step % 2 === 0) {
+                    // Hi-hat - high freq noise
+                    hatGain.gain.setValueAtTime(0.04 * drumVol, arpTime);
+                    hatGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.05);
+                }
             }
             
             arpIndex++;
