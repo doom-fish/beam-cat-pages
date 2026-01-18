@@ -343,22 +343,22 @@ void main() {
             particleOrigin.y + (seed2 - 0.5) * logoHeight * 1.0
         );
         
-        // Each particle lerps individually toward finger at different speeds
-        float attractSpeed = 0.3 + seed3 * 0.7;  // Different speeds per particle
-        vec2 targetPos = mix(spawnPos, u_touch, u_touching * attractSpeed);
-        
-        // Orbit around finger when touching
-        float orbitRadius = 0.03 + seed * 0.05;
+        // Orbit around finger - centered exactly on finger position
+        float orbitRadius = 0.02 + seed * 0.04;
         float orbitSpeed = 1.5 + seed2 * 2.0;
         float orbitPhase = u_time * orbitSpeed + i * 0.5;
-        vec2 orbit = vec2(cos(orbitPhase), sin(orbitPhase)) * orbitRadius * u_touching;
+        vec2 orbitOffset = vec2(cos(orbitPhase), sin(orbitPhase)) * orbitRadius;
+        vec2 fingerOrbitPos = u_touch + orbitOffset;
         
         // Gentle dust drift when not touching
-        float turbulence = sin(u_time * 1.5 + seed * 10.0) * 0.012 * phase * (1.0 - u_touching);
-        float riseSpeed = phase * 0.06 * (0.3 + seed3 * 0.7) * (1.0 - u_touching * 0.8);
-        float spread = (seed - 0.5) * 0.03 * phase * (1.0 - u_touching);
+        float turbulence = sin(u_time * 1.5 + seed * 10.0) * 0.012 * phase;
+        float riseSpeed = phase * 0.06 * (0.3 + seed3 * 0.7);
+        float spread = (seed - 0.5) * 0.03 * phase;
+        vec2 logoPos = spawnPos + vec2(spread + turbulence, riseSpeed);
         
-        vec2 particlePos = targetPos + orbit + vec2(spread + turbulence, riseSpeed);
+        // Lerp between logo position and finger orbit position
+        float attractSpeed = 0.4 + seed3 * 0.6;
+        vec2 particlePos = mix(logoPos, fingerOrbitPos, u_touching * attractSpeed);
         
         // Bigger square pixels - aspect corrected
         float size = 0.0015 + seed3 * 0.0015;
