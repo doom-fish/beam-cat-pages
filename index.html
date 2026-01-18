@@ -471,6 +471,7 @@ let noiseNode = null;
 let audioStarted = false;
 let clickGlitch = 0;
 let currentPatternIndex = 0;  // Global pattern index for accelerometer control
+let currentBpm = 138;  // Global BPM for accelerometer control
 
 // Gate patterns - global for accelerometer access
 const gatePatterns = [
@@ -550,15 +551,14 @@ function initAudio(e) {
     gateGain.gain.value = 1;
     gateGain.connect(masterGain);
     
-    // Gate rhythm - classic trance patterns at 138 BPM
-    const bpm = 138;
-    const sixteenth = 60 / bpm / 4;
-    
     let stepIndex = 0;
     let nextStepTime = audioCtx.currentTime;
     
     function scheduleGate() {
         if (!audioCtx) return;
+        
+        // Dynamic BPM from accelerometer
+        const sixteenth = 60 / currentBpm / 4;
         
         // Use global pattern controlled by accelerometer
         const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
@@ -582,7 +582,7 @@ function initAudio(e) {
     }
     scheduleGate();
     
-    // Accelerometer controls pattern selection
+    // Accelerometer controls pattern (Y) and BPM (X)
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission().then(response => {
             if (response === 'granted') {
@@ -595,11 +595,15 @@ function initAudio(e) {
     
     function handlePatternMotion(e) {
         if (e.accelerationIncludingGravity) {
-            // Use Y tilt to select pattern (phone tilt forward/back)
+            // Y tilt = pattern selection (forward/back)
             const y = e.accelerationIncludingGravity.y || 0;
-            // Normalize -10 to 10 → 0 to patterns.length
-            const normalized = (y + 10) / 20;
-            currentPatternIndex = Math.floor(Math.max(0, Math.min(1, normalized)) * gatePatterns.length);
+            const normalizedY = (y + 10) / 20;
+            currentPatternIndex = Math.floor(Math.max(0, Math.min(1, normalizedY)) * gatePatterns.length);
+            
+            // X tilt = BPM control (left/right) - 80 to 180 BPM
+            const x = e.accelerationIncludingGravity.x || 0;
+            const normalizedX = (x + 10) / 20;  // 0 to 1
+            currentBpm = 80 + Math.max(0, Math.min(1, normalizedX)) * 100;  // 80-180 BPM
         }
     }
     
