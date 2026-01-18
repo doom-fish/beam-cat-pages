@@ -75,28 +75,31 @@ void main() {
     // Base Y rotation (spin) - angle from JS (accumulated based on BPM)
     p = rotateAxis(p, vec3(0.0, 1.0, 0.0), u_rotation);
     
-    // Tilt toward finger using axis-angle (only when touching and away from center)
-    vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
-    float dist = length(fingerDir);
-    
-    // Only tilt when actively touching AND finger is away from center
-    if (u_touching > 0.1 && dist > 0.05) {
-        // Target direction: finger position + outward toward camera
-        vec3 up = vec3(0.0, 1.0, 0.0);  // Resting = pointing up
-        float cameraZ = 0.3 + dist * 0.5;
-        vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, cameraZ));
+    // Tilt toward finger using axis-angle (only when actively touching)
+    // When not touching, pyramid points straight up (no tilt applied)
+    if (u_touching > 0.05) {
+        vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
+        float dist = length(fingerDir);
         
-        // Rotation axis perpendicular to both
-        vec3 axis = cross(up, target);
-        float axisLen = length(axis);
-        
-        if (axisLen > 0.001) {
-            axis = normalize(axis);
-            float angle = acos(clamp(dot(up, target), -1.0, 1.0));
-            // Smooth the tilt with touching state
-            p = rotateAxis(p, axis, angle * u_touching);
+        if (dist > 0.05) {
+            // Target direction: finger position + outward toward camera
+            vec3 up = vec3(0.0, 1.0, 0.0);
+            float cameraZ = 0.3 + dist * 0.5;
+            vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, cameraZ));
+            
+            // Rotation axis perpendicular to both
+            vec3 axis = cross(up, target);
+            float axisLen = length(axis);
+            
+            if (axisLen > 0.001) {
+                axis = normalize(axis);
+                float angle = acos(clamp(dot(up, target), -1.0, 1.0));
+                // Scale tilt by touching state for smooth release
+                p = rotateAxis(p, axis, angle * u_touching);
+            }
         }
     }
+    // When u_touching < 0.05, no tilt is applied - pyramid points up
     
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
@@ -1034,22 +1037,16 @@ function render() {
     
     // Smooth the touching state for camera tilt
     const targetTouching = isTouching ? 1.0 : 0.0;
-    smoothTouching += (targetTouching - smoothTouching) * 0.15;
+    smoothTouching += (targetTouching - smoothTouching) * 0.12;
     if (smoothTouching < 0.01) smoothTouching = 0;
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_touching'), smoothTouching);
     
-    // Smooth interpolation toward touch position
-    const targetX = isTouching ? touchPos.x : 0.5;
-    const targetY = isTouching ? touchPos.y : 0.5;
-    // Faster return to center when not touching
-    const lerpSpeed = isTouching ? 0.08 : 0.15;
-    smoothTouchPos.x += (targetX - smoothTouchPos.x) * lerpSpeed;
-    smoothTouchPos.y += (targetY - smoothTouchPos.y) * lerpSpeed;
-    // Snap to center if very close
-    if (!isTouching && Math.abs(smoothTouchPos.x - 0.5) < 0.01 && Math.abs(smoothTouchPos.y - 0.5) < 0.01) {
-        smoothTouchPos.x = 0.5;
-        smoothTouchPos.y = 0.5;
+    // Keep last touch position while fading, don't lerp to center
+    if (isTouching) {
+        smoothTouchPos.x += (touchPos.x - smoothTouchPos.x) * 0.08;
+        smoothTouchPos.y += (touchPos.y - smoothTouchPos.y) * 0.08;
     }
+    // When not touching, keep last position - u_touching fades the tilt instead
     gl.uniform2f(gl.getUniformLocation(octaProg, 'u_touch'), smoothTouchPos.x, smoothTouchPos.y);
     
     gl.lineWidth(2);
