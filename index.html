@@ -791,16 +791,12 @@ function initAudio(e) {
                     kickOsc.frequency.exponentialRampToValueAtTime(40, arpTime + 0.1);
                     kickGain.gain.setValueAtTime(0.15 * drumVol, arpTime);
                     kickGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.15);
-                    // Glitch on kick
-                    beatGlitch = 1.0;
                 }
                 
                 if (step === 4 || step === 12) {
                     // Snare - noise burst
                     snareGain.gain.setValueAtTime(0.1 * drumVol, arpTime);
                     snareGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.1);
-                    // Glitch on snare
-                    beatGlitch = 0.7;
                 }
                 
                 if (step % 2 === 0) {
@@ -848,6 +844,9 @@ document.addEventListener('click', (e) => handleInteraction(e, true));
 document.addEventListener('touchend', (e) => {
     e.preventDefault();
     isTouching = false;  // Release
+    // Reset touch position to center for resting
+    touchPos.x = 0.5;
+    touchPos.y = 0.5;
     handleInteraction(e, true);
 });
 document.addEventListener('touchstart', (e) => {
@@ -856,13 +855,22 @@ document.addEventListener('touchstart', (e) => {
     let y = e.touches[0].clientY / window.innerHeight;
     touchPos.x = x;
     touchPos.y = y;
+    // Trigger glitch on touch down
+    clickGlitch = 0.8;
 });
 document.addEventListener('mousedown', (e) => {
     isTouching = true;
     touchPos.x = e.clientX / window.innerWidth;
     touchPos.y = e.clientY / window.innerHeight;
+    // Trigger glitch on mouse down
+    clickGlitch = 0.8;
 });
-document.addEventListener('mouseup', () => { isTouching = false; });
+document.addEventListener('mouseup', () => {
+    isTouching = false;
+    // Reset touch position to center for resting
+    touchPos.x = 0.5;
+    touchPos.y = 0.5;
+});
 document.addEventListener('mousemove', (e) => {
     if (isTouching) {
         touchPos.x = e.clientX / window.innerWidth;
@@ -887,14 +895,18 @@ document.addEventListener('touchmove', (e) => {
     const newGlitchMode = gridX + gridY * 4;
     if (newGlitchMode !== glitchMode) {
         glitchMode = newGlitchMode;
-        clickGlitch = 0.6;  // Glitch on cell change
     }
     
     // Jam controls - real-time updates
     if (window.jamState) {
         window.jamState.progIndex = gridX;
         const octaves = [2, 1.5, 1, 0.5];
-        window.jamState.octaveShift = octaves[gridY];
+        const newOctave = octaves[gridY];
+        // Glitch only on octave change
+        if (newOctave !== window.jamState.octaveShift) {
+            beatGlitch = 1.0;
+        }
+        window.jamState.octaveShift = newOctave;
         window.jamState.filterMod = (gridX + gridY) / 6;
         window.jamState.swingAmount = gridY * 0.1;
     }
