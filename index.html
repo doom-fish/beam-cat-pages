@@ -487,40 +487,51 @@ function triggerClickGlitch() {
 function changeChord(x, y) {
     if (!audioCtx || chordOscillators.length === 0) return;
     
-    triggerClickGlitch();
-    
-    // Select chord based on screen position
+    // Select chord based on screen position (X only)
     const chordIndex = Math.floor((x || 0.5) * minorChords.length);
     const chord = minorChords[Math.min(chordIndex, minorChords.length - 1)];
     const now = audioCtx.currentTime;
     
-    // Y position affects octave shift (higher on screen = higher pitch)
-    const octaveShift = 1 + (1 - (y || 0.5)) * 0.5;  // 1.0 to 1.5
+    // Structure: 2 bass oscs, then 35 lead oscs (5 notes * 7 detunes)
+    const bassCount = 2;
+    const leadDetuneCount = 7;
     
     chordOscillators.forEach((osc, i) => {
-        const noteIndex = Math.floor(i / 7) % 5;  // 7 oscs per note, 5 notes
-        const isHighLayer = i >= 35;  // First 35 are bass, next 35 are harmony
-        const baseFreq = chord[noteIndex];
-        const targetFreq = isHighLayer ? baseFreq * 4 * octaveShift : baseFreq * octaveShift;
-        osc.frequency.setTargetAtTime(targetFreq, now, 0.3);
+        let targetFreq;
+        if (i < bassCount) {
+            // Bass layer - root and third
+            targetFreq = chord[i];
+        } else {
+            // Lead layer
+            const leadIndex = i - bassCount;
+            const noteIndex = Math.floor(leadIndex / leadDetuneCount) % 5;
+            targetFreq = chord[noteIndex] * 4;
+        }
+        osc.frequency.setTargetAtTime(targetFreq, now, 0.08);  // Fast glide
     });
+}
+
+function handleInteraction(e, triggerGlitch) {
+    let x = 0.5, y = 0.5;
+    if (e.touches && e.touches[0]) {
+        x = e.touches[0].clientX / window.innerWidth;
+        y = e.touches[0].clientY / window.innerHeight;
+    } else if (e.clientX !== undefined) {
+        x = e.clientX / window.innerWidth;
+        y = e.clientY / window.innerHeight;
+    }
     
-    triggerGlitchSound();
+    if (!audioStarted) {
+        initAudio(e);
+    } else {
+        changeChord(x, y);
+        if (triggerGlitch) {
+            triggerClickGlitch();
+        }
+    }
 }
 
 function initAudio(e) {
-    // Get click position
-    let x = 0.5, y = 0.5;
-    if (e) {
-        x = (e.clientX || (e.touches && e.touches[0]?.clientX) || window.innerWidth/2) / window.innerWidth;
-        y = (e.clientY || (e.touches && e.touches[0]?.clientY) || window.innerHeight/2) / window.innerHeight;
-    }
-    
-    if (audioStarted) {
-        changeChord(x, y);
-        return;
-    }
-    audioStarted = true;
     
     const hint = document.getElementById('sound-hint');
     if (hint) hint.style.opacity = '0';
@@ -543,49 +554,46 @@ function initAudio(e) {
     masterGain.gain.value = 0.15;
     masterGain.connect(audioCtx.destination);
     
-    // Rich supersaw - start with random chord
+    // Bass layer - sub frequencies, sine for clean low end
     const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
-    const superDetunes = [-25, -15, -7, 0, 7, 15, 25];
     
-    chord.forEach((freq, i) => {
+    chord.slice(0, 2).forEach((freq, i) => {  // Only root and third for bass
         const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.04;
+        noteGain.gain.value = 0.08;
         
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 600 + i * 150;
-        filter.Q.value = 0.7;
+        filter.frequency.value = 120;  // Very low
         filter.connect(noteGain);
         noteGain.connect(masterGain);
         
-        superDetunes.forEach(detune => {
-            const osc = audioCtx.createOscillator();
-            osc.type = 'sawtooth';
-            osc.frequency.value = freq;
-            osc.detune.value = detune;
-            osc.connect(filter);
-            osc.start();
-            oscillators.push(osc);
-            chordOscillators.push(osc);
-        });
+        const osc = audioCtx.createOscillator();
+        osc.type = 'sine';  // Clean bass
+        osc.frequency.value = freq;
+        osc.connect(filter);
+        osc.start();
+        oscillators.push(osc);
+        chordOscillators.push(osc);
     });
     
-    // Higher octave harmony layer - one octave up, quieter
+    // Lead supersaw layer - bright and cutting
+    const superDetunes = [-30, -18, -8, 0, 8, 18, 30];
+    
     chord.forEach((freq, i) => {
         const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.02;  // Quieter than bass
+        noteGain.gain.value = 0.025;
         
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 1200 + i * 200;  // Brighter filter
-        filter.Q.value = 0.5;
+        filter.frequency.value = 2000 + i * 300;  // Bright
+        filter.Q.value = 1.5;  // Slight resonance
         filter.connect(noteGain);
         noteGain.connect(masterGain);
         
         superDetunes.forEach(detune => {
             const osc = audioCtx.createOscillator();
             osc.type = 'sawtooth';
-            osc.frequency.value = freq * 4;  // Two octaves up
+            osc.frequency.value = freq * 4;  // Two octaves up for lead
             osc.detune.value = detune;
             osc.connect(filter);
             osc.start();
@@ -626,8 +634,12 @@ function triggerGlitchSound() {
 }
 
 // Start audio on user interaction
-document.addEventListener('click', initAudio);
-document.addEventListener('touchend', initAudio);
+document.addEventListener('click', (e) => handleInteraction(e, true));
+document.addEventListener('touchstart', (e) => handleInteraction(e, true));
+document.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    handleInteraction(e, false);  // No glitch on slide
+}, { passive: false });
 
 const startTime = performance.now() / 1000;
 let lastGlitchState = false;
