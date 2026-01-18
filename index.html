@@ -171,11 +171,11 @@ void main() {
     float logoScale = 0.3;
     float logoHeight = logoScale / u_logoAspect;
     
-    float timeSeed = floor(u_time * 0.5);
+    float timeSeed = floor(u_time * 0.25);
     float intervalRand = fract(sin(timeSeed * 127.1) * 43758.5);
-    float interval = 1.5 + intervalRand * 2.0;
+    float interval = 3.0 + intervalRand * 4.0;
     float flickerPhase = mod(u_time, interval);
-    float flickerDuration = 0.2 + intervalRand * 0.3;
+    float flickerDuration = 0.15 + intervalRand * 0.2;
     float flickerActive = step(interval - flickerDuration, flickerPhase);
     
     float jitterSeed = floor(u_time * 30.0);
