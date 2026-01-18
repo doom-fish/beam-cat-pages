@@ -73,8 +73,8 @@ void main() {
     float dist = length(fingerDir);  // How far from center
     float tilt = dist * 2.5;  // Full tilt - can go upside down (past 90 degrees)
     
-    // Rotation speed scales with BPM (100-160 range mapped to 0.1-0.3)
-    float rotSpeed = 0.1 + (u_bpm - 100.0) / 200.0;
+    // Rotation speed scales with BPM (100-160 mapped to 0.15-0.45 rad/s)
+    float rotSpeed = u_bpm / 400.0;  // 100 BPM = 0.25, 160 BPM = 0.4
     float rotY = t * rotSpeed;
     float cy = cos(rotY), sy = sin(rotY);
     
