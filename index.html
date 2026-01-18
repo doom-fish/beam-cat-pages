@@ -556,6 +556,30 @@ function initAudio() {
         });
     });
     
+    // Higher octave harmony layer - one octave up, quieter
+    chord.forEach((freq, i) => {
+        const noteGain = audioCtx.createGain();
+        noteGain.gain.value = 0.02;  // Quieter than bass
+        
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 1200 + i * 200;  // Brighter filter
+        filter.Q.value = 0.5;
+        filter.connect(noteGain);
+        noteGain.connect(masterGain);
+        
+        superDetunes.forEach(detune => {
+            const osc = audioCtx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.value = freq * 2;  // One octave up
+            osc.detune.value = detune;
+            osc.connect(filter);
+            osc.start();
+            oscillators.push(osc);
+            chordOscillators.push(osc);
+        });
+    });
+    
     // Glitch noise
     glitchGain = audioCtx.createGain();
     glitchGain.gain.value = 0;
