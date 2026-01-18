@@ -312,7 +312,7 @@ void main() {
         
         // Brighter purple/pink dust color
         vec3 dustColor = vec3(1.0, 0.6, 1.0);
-        col += dustColor * particle * fade * twinkle * 0.7;
+        col += dustColor * particle * fade * twinkle * 0.35;
     }
     
     if (glitchUV.x >= 0.0 && glitchUV.x <= 1.0 && glitchUV.y >= 0.0 && glitchUV.y <= 1.0) {
@@ -532,21 +532,41 @@ function initAudio(e) {
     masterGain.gain.value = 0.15;
     masterGain.connect(audioCtx.destination);
     
+    // Trance gate LFO for bass
+    const gateGain = audioCtx.createGain();
+    gateGain.gain.value = 0;
+    gateGain.connect(masterGain);
+    
+    // Gate rhythm - 16th notes at ~130 BPM
+    const bpm = 130;
+    const gateInterval = 60 / bpm / 4;  // 16th note
+    
+    function runGate() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        gateGain.gain.cancelScheduledValues(now);
+        gateGain.gain.setValueAtTime(1, now);
+        gateGain.gain.exponentialRampToValueAtTime(0.01, now + gateInterval * 0.7);
+        gateGain.gain.setValueAtTime(0, now + gateInterval * 0.9);
+        setTimeout(runGate, gateInterval * 1000);
+    }
+    runGate();
+    
     // Bass layer - sub frequencies, sine for clean low end
     const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
     
     chord.slice(0, 2).forEach((freq, i) => {  // Only root and third for bass
         const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.08;
+        noteGain.gain.value = 0.12;
         
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 120;  // Very low
+        filter.frequency.value = 150;
         filter.connect(noteGain);
-        noteGain.connect(masterGain);
+        noteGain.connect(gateGain);  // Route through gate
         
         const osc = audioCtx.createOscillator();
-        osc.type = 'sine';  // Clean bass
+        osc.type = 'sine';
         osc.frequency.value = freq;
         osc.connect(filter);
         osc.start();
