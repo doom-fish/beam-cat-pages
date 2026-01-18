@@ -1069,12 +1069,15 @@ function render() {
     if (smoothTouching < 0.01) smoothTouching = 0;
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_touching'), smoothTouching);
     
-    // Keep last touch position while fading, don't lerp to center
+    // Smooth touch position - lerp to center when not touching
     if (isTouching) {
-        smoothTouchPos.x += (touchPos.x - smoothTouchPos.x) * 0.08;
-        smoothTouchPos.y += (touchPos.y - smoothTouchPos.y) * 0.08;
+        smoothTouchPos.x += (touchPos.x - smoothTouchPos.x) * 0.1;
+        smoothTouchPos.y += (touchPos.y - smoothTouchPos.y) * 0.1;
+    } else {
+        // Lerp back to center - this makes fingerDir → 0, so pyramid points up
+        smoothTouchPos.x += (0.5 - smoothTouchPos.x) * 0.1;
+        smoothTouchPos.y += (0.5 - smoothTouchPos.y) * 0.1;
     }
-    // When not touching, keep last position - u_touching fades the tilt instead
     gl.uniform2f(gl.getUniformLocation(octaProg, 'u_touch'), smoothTouchPos.x, smoothTouchPos.y);
     
     gl.lineWidth(2);
