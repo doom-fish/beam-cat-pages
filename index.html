@@ -558,7 +558,7 @@ function triggerClickGlitch() {
     triggerGlitchSound();
 }
 
-function handleInteraction(e, triggerGlitch) {
+function handleInteraction(e, triggerGlitch, setTouching = true) {
     let x = 0.5, y = 0.5;
     if (e.touches && e.touches[0]) {
         x = e.touches[0].clientX / window.innerWidth;
@@ -568,10 +568,12 @@ function handleInteraction(e, triggerGlitch) {
         y = e.clientY / window.innerHeight;
     }
     
-    // Update touch position for pyramid rotation
-    touchPos.x = x;
-    touchPos.y = y;
-    isTouching = true;
+    // Update touch position for pyramid rotation (only if we have valid coords)
+    if (setTouching) {
+        touchPos.x = x;
+        touchPos.y = y;
+        isTouching = true;
+    }
     
     // Grid position determines effects (4x4 grid = 16 cells)
     const gridX = Math.floor(x * 4);
@@ -992,9 +994,8 @@ document.addEventListener('click', (e) => handleInteraction(e, true));
 document.addEventListener('touchend', (e) => {
     e.preventDefault();
     isTouching = false;  // Release
-    // Don't call handleInteraction - it would reset touchPos to center and isTouching to true
-    // Just start audio if needed
-    if (!audioStarted) { startAudio(); }
+    // Call handleInteraction but don't update touchPos or isTouching (false flag)
+    handleInteraction(e, true, false);
 });
 document.addEventListener('touchstart', (e) => {
     isTouching = true;
