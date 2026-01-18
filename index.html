@@ -856,8 +856,8 @@ function initAudio(e) {
                 bassGain.gain.setValueAtTime(0.005, arpTime + swing);
             }
             
-            // 16 unique arp patterns - one for each grid cell
-            const arpPatternIdx = currentPatternIndex % 16;
+            // 4 arp patterns - one for each column
+            const arpPatternIdx = currentPatternIndex % 4;
             const arpPatterns = [
                 [0, 2, 1, 2, 0, 1, 2, 1],  // 0: Classic bounce
                 [0, 0, 2, 0, 1, 0, 2, 1],  // 1: Stutter groove
@@ -1042,7 +1042,7 @@ document.addEventListener('touchstart', (e) => {
         }
         window.jamState.octaveShift = newOctave;
     }
-    currentPatternIndex = cellIndex;
+    currentPatternIndex = gridX;  // Same pattern for each column
     clickGlitch = 0.8;
 });
 document.addEventListener('mousedown', (e) => {
@@ -1068,7 +1068,7 @@ document.addEventListener('mousedown', (e) => {
         }
         window.jamState.octaveShift = newOctave;
     }
-    currentPatternIndex = cellIndex;
+    currentPatternIndex = gridX;  // Same pattern for each column
     clickGlitch = 0.8;
 });
 document.addEventListener('mouseup', () => {
@@ -1115,8 +1115,8 @@ document.addEventListener('touchmove', (e) => {
         window.jamState.filterMod = (gridX + gridY) / 6;
         window.jamState.swingAmount = gridY * 0.1;
     }
-    // Each cell has unique arp pattern (0-15)
-    currentPatternIndex = cellIndex;
+    // Same arp pattern for each column
+    currentPatternIndex = gridX;
 }, { passive: false });
 
 const startTime = performance.now() / 1000;
