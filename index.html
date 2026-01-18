@@ -657,7 +657,7 @@ document.addEventListener('touchmove', (e) => {
     const newChordIndex = Math.floor(x * minorChords.length);
     if (newChordIndex !== lastChordIndex) {
         lastChordIndex = newChordIndex;
-        handleInteraction(e, false);
+        handleInteraction(e, true);  // Trigger glitch on chord change
     }
 }, { passive: false });
 
