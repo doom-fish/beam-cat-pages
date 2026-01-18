@@ -552,27 +552,38 @@ function initAudio(e) {
     }
     runGate();
     
-    // Bass layer - sub frequencies, sine for clean low end
+    // 303-style acid bass - sawtooth with resonant filter sweeps
     const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
     
-    chord.slice(0, 2).forEach((freq, i) => {  // Only root and third for bass
-        const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.12;
-        
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 150;
-        filter.connect(noteGain);
-        noteGain.connect(gateGain);  // Route through gate
-        
-        const osc = audioCtx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        osc.connect(filter);
-        osc.start();
-        oscillators.push(osc);
-        chordOscillators.push(osc);
-    });
+    // Single 303 bass note (root only)
+    const bassGain = audioCtx.createGain();
+    bassGain.gain.value = 0.25;
+    
+    const bassFilter = audioCtx.createBiquadFilter();
+    bassFilter.type = 'lowpass';
+    bassFilter.frequency.value = 800;  // Start frequency
+    bassFilter.Q.value = 15;  // High resonance for squelch
+    bassFilter.connect(bassGain);
+    bassGain.connect(gateGain);
+    
+    const bassOsc = audioCtx.createOscillator();
+    bassOsc.type = 'sawtooth';
+    bassOsc.frequency.value = chord[0] * 4;  // Octave up for audibility
+    bassOsc.connect(bassFilter);
+    bassOsc.start();
+    oscillators.push(bassOsc);
+    chordOscillators.push(bassOsc);
+    
+    // Filter sweep synced to gate
+    function sweepFilter() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        bassFilter.frequency.cancelScheduledValues(now);
+        bassFilter.frequency.setValueAtTime(1200, now);  // Start high
+        bassFilter.frequency.exponentialRampToValueAtTime(200, now + gateInterval * 0.8);  // Sweep down
+        setTimeout(sweepFilter, gateInterval * 1000);
+    }
+    sweepFilter();
     
     // Lead supersaw layer - bright and cutting
     const superDetunes = [-30, -18, -8, 0, 8, 18, 30];
