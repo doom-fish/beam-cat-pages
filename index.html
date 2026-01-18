@@ -577,23 +577,12 @@ let lastFrameTime = 0;  // For delta time
 let smoothTouching = 0;  // Smoothed touching state for camera tilt
 let leadIntensity = 0;  // Current lead pattern intensity for glow sync
 
-// Gate patterns - global for accelerometer access
+// Gate patterns - structured electronic patterns (less random, more mechanical)
 const gatePatterns = [
-    [1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 1, 0.7, 0.4, 0],  // Rolling triplets
-    [1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1],  // Stutter
-    [1, 0, 0.5, 1, 0, 0.8, 0, 1, 0.6, 0, 1, 0, 0.7, 1, 0, 0.5],  // Syncopated
-    [1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0, 1, 0.8, 0.5, 0],  // Galloping
-    [1, 0, 0.9, 0.3, 0, 1, 0.5, 0, 0.8, 0, 1, 0.4, 0, 0.9, 0.6, 0],  // Shuffle
-    [1, 0, 0, 0.8, 0, 0, 1, 0, 0, 0.7, 0, 1, 0, 0.6, 0, 0.9],  // Breakbeat
-    [1, 0.4, 0.6, 0.4, 1, 0.5, 0.7, 0.3, 1, 0.4, 0.8, 0.5, 1, 0.6, 0.5, 0.4],  // Driving
-    [1, 0, 0, 0, 0.7, 0, 0, 0, 1, 0, 0, 0.5, 0, 0.8, 0, 0],  // Minimal
-    [1, 0.6, 0, 0.8, 0, 0.5, 1, 0, 0.7, 0, 0.9, 0, 0.4, 1, 0, 0.6],  // Offbeat
-    [1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0],  // Trance gate
-    [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],  // Straight 8ths
-    [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],  // Triplet feel
-    [1, 0.3, 0.6, 0.9, 0.6, 0.3, 1, 0.3, 0.6, 0.9, 0.6, 0.3, 1, 0.5, 0.7, 0.4],  // Wave
-    [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0],  // Sparse
-    [0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1],  // Pumping
+    [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],  // Straight 16ths
+    [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],  // Four on floor
+    [1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0],  // Double hit
+    [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],  // SID arp classic
 ];
 
 // Minor chords from D minor scale - sub bass octave
@@ -745,9 +734,9 @@ function initAudio(e) {
         chordOscs.push(osc);
     }
     
-    // Lead - sawtooth (SID's bright lead sound)
+    // Lead - pure square wave (classic SID lead)
     const leadOsc = audioCtx.createOscillator();
-    leadOsc.type = 'sawtooth';
+    leadOsc.type = 'square';
     leadOsc.frequency.value = chord[0] * 2;
     const leadGain = audioCtx.createGain();
     leadGain.gain.value = 0;
@@ -757,10 +746,10 @@ function initAudio(e) {
     leadOsc.start();
     oscillators.push(leadOsc);
     
-    // Second lead - pulse wave slightly detuned
+    // Second lead - square one octave up for that piercing SID sound
     const leadOsc2 = audioCtx.createOscillator();
-    leadOsc2.type = 'square';  // Pulse
-    leadOsc2.frequency.value = chord[0] * 2 * 1.002;
+    leadOsc2.type = 'square';
+    leadOsc2.frequency.value = chord[0] * 4;  // Octave up
     const leadGain2 = audioCtx.createGain();
     leadGain2.gain.value = 0;
     leadOsc2.connect(leadGain2);
@@ -1166,11 +1155,11 @@ function render() {
     }
     lastPyramidGlitchState = pyramidGlitchActive;
     
-    // Update pyramid rotation based on BPM (accumulated, so BPM changes are smooth)
+    // Update pyramid rotation based on BPM - super slow base
     const now = performance.now() / 1000;
     const deltaTime = lastFrameTime ? (now - lastFrameTime) : 0.016;
     lastFrameTime = now;
-    const rotSpeed = 0.05 + (currentBpm - 100) / 30;  // 100 BPM = 0.05 rad/s (super slow), 160 BPM = 2.05 rad/s
+    const rotSpeed = 0.02 + (currentBpm - 100) / 60;  // Base 0.02 rad/s (very slow), scales gently with BPM
     pyramidRotation += deltaTime * rotSpeed;
     
     // Render pyramid to FBO
