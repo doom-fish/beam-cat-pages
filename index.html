@@ -480,7 +480,7 @@ function initAudio() {
     }
     
     masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.35;
+    masterGain.gain.value = 1.0;
     masterGain.connect(audioCtx.destination);
     
     // Simplified supersaw - 5 notes, 3 detuned oscs each
@@ -489,11 +489,11 @@ function initAudio() {
     
     chordFreqs.forEach(freq => {
         const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.1;
+        noteGain.gain.value = 0.25;
         
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 700;
+        filter.frequency.value = 1200;
         filter.connect(noteGain);
         noteGain.connect(masterGain);
         
