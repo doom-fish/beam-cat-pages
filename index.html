@@ -22,15 +22,7 @@
         html, body { background: #000; overflow: hidden; height: 100%; }
         canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
         #sound-hint {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: rgba(200, 100, 255, 0.7);
-            font-family: monospace;
-            font-size: 14px;
-            pointer-events: none;
-            transition: opacity 0.5s;
+            display: none;
         }
     </style>
 </head>
@@ -478,62 +470,35 @@ function initAudio() {
     }
     
     masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.4;
+    masterGain.gain.value = 0.15;
     masterGain.connect(audioCtx.destination);
     
-    // D minor scale progression: i -> iv -> VII -> III -> VI -> ii° -> V -> i
-    // All chords from D natural minor scale for harmonic coherence
-    const chordProgression = [
-        [73.42, 87.31, 110, 146.83],    // Dm: D2, F2, A2, D3 (i)
-        [98, 116.54, 146.83, 196],      // Gm: G2, Bb2, D3, G3 (iv)
-        [65.41, 82.41, 98, 130.81],     // C: C2, E2, G2, C3 (VII)
-        [87.31, 110, 130.81, 174.61],   // F: F2, A2, C3, F3 (III)
-        [55, 69.30, 82.41, 110],        // Bb: Bb1, D2, F2, Bb2 (VI)
-        [73.42, 87.31, 110, 146.83],    // Dm: D2, F2, A2, D3 (i)
-    ];
+    // Rich supersaw - single Dm chord with 7 detuned oscillators per note
+    const chordFreqs = [73.42, 87.31, 110, 146.83, 220];  // Dm: D2, F2, A2, D3, A3
+    const superDetunes = [-25, -15, -7, 0, 7, 15, 25];  // Wide stereo spread
     
-    let currentChord = 0;
-    const chordOscs = [];
-    const chordGains = [];
-    
-    // Create oscillators for first chord
-    const detunes = [-6, 0, 6];
-    
-    chordProgression[0].forEach((freq, i) => {
+    chordFreqs.forEach((freq, i) => {
         const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.08;
-        chordGains.push(noteGain);
+        noteGain.gain.value = 0.04;
         
+        // Warm filter
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 400 + i * 100;  // Darker, muffled
-        filter.Q.value = 2;
+        filter.frequency.value = 600 + i * 150;
+        filter.Q.value = 0.7;
         filter.connect(noteGain);
         noteGain.connect(masterGain);
         
-        detunes.forEach(detune => {
+        superDetunes.forEach(detune => {
             const osc = audioCtx.createOscillator();
             osc.type = 'sawtooth';
             osc.frequency.value = freq;
             osc.detune.value = detune;
             osc.connect(filter);
             osc.start();
-            chordOscs.push({ osc, baseFreq: freq, noteIndex: i });
             oscillators.push(osc);
         });
     });
-    
-    // Slowly morph between chords
-    setInterval(() => {
-        currentChord = (currentChord + 1) % chordProgression.length;
-        const newChord = chordProgression[currentChord];
-        const now = audioCtx.currentTime;
-        
-        chordOscs.forEach(({ osc, noteIndex }) => {
-            const targetFreq = newChord[noteIndex];
-            osc.frequency.setTargetAtTime(targetFreq, now, 4);  // 4 second glide
-        });
-    }, 12000);  // Change chord every 12 seconds
     
     // Glitch noise
     glitchGain = audioCtx.createGain();
