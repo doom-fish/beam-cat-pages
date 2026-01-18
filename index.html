@@ -195,6 +195,8 @@ uniform float u_logoAspect;
 uniform float u_clickGlitch;
 uniform float u_beatGlitch;  // Synced to drum pattern
 uniform float u_leadIntensity;  // Lead pattern for logo glow
+uniform vec2 u_touch;  // Touch position for particles
+uniform float u_touching;  // 1.0 if touching
 varying vec2 v_uv;
 
 void main() {
@@ -320,7 +322,10 @@ void main() {
     }
     col += vec3(0.4, 0.02, 0.6) * logoGlow * 2.0;
     
-    // Dust particles around logo text
+    // Dust particles - lerp between logo area and finger position
+    vec2 logoCenter = vec2(0.5, 0.47);
+    vec2 particleCenter = mix(logoCenter, u_touch, u_touching * 0.7);
+    
     for (float i = 0.0; i < 60.0; i += 1.0) {
         float seed = fract(sin(i * 127.1) * 43758.5);
         float seed2 = fract(sin(i * 269.5) * 43758.5);
@@ -331,12 +336,12 @@ void main() {
         float phase = fract((u_time + seed * 20.0) / lifetime);
         float fade = smoothstep(0.0, 0.1, phase) * smoothstep(1.0, 0.5, phase);
         
-        // Spawn around logo area
+        // Spawn around logo/finger area
         float logoScale = 0.35;
         float logoHeight = logoScale / u_logoAspect;
         vec2 spawnPos = vec2(
-            0.5 + (seed - 0.5) * logoScale * 1.1 / u_aspect,
-            0.47 + (seed2 - 0.5) * logoHeight * 1.0
+            particleCenter.x + (seed - 0.5) * logoScale * 1.1 / u_aspect,
+            particleCenter.y + (seed2 - 0.5) * logoHeight * 1.0
         );
         
         // Gentle dust drift
@@ -1251,6 +1256,8 @@ function render() {
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_clickGlitch'), clickGlitch);
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_beatGlitch'), beatGlitch);
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_leadIntensity'), leadIntensity);
+    gl.uniform2f(gl.getUniformLocation(compProg, 'u_touch'), smoothTouchPos.x, smoothTouchPos.y);
+    gl.uniform1f(gl.getUniformLocation(compProg, 'u_touching'), smoothTouching);
     
     // Decay glitches
     clickGlitch *= 0.85;
