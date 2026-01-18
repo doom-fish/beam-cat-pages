@@ -351,7 +351,9 @@ void main() {
         
         // Aspect-correct the ring to be circular on screen
         vec2 ringOffset = vec2(cos(angle) / u_aspect, sin(angle)) * ringRadius;
-        vec2 fingerRingPos = u_touch + ringOffset;
+        // u_touch.y is screen coords (0=top, 1=bottom), shader UV has 0=bottom, 1=top
+        vec2 fingerPos = vec2(u_touch.x, 1.0 - u_touch.y);
+        vec2 fingerRingPos = fingerPos + ringOffset;
         
         // Gentle dust drift when not touching
         float turbulence = sin(u_time * 1.5 + seed * 10.0) * 0.012 * phase;
