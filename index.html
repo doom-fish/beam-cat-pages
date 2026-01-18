@@ -77,9 +77,9 @@ precision highp float;
 uniform float u_flicker;
 uniform float u_time;
 void main() {
-    float glitchSeed = floor(u_time * 25.0);
+    float glitchSeed = floor(u_time * 8.0);
     float glitchRand = fract(sin(glitchSeed * 78.233) * 43758.5);
-    float glitch = step(0.7, glitchRand) * 0.5;
+    float glitch = step(0.85, glitchRand) * 0.3;
     float flicker = u_flicker * (1.0 - glitch);
     
     // Color glitch - every 2-4 seconds, flash to red or green
