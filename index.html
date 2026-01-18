@@ -103,12 +103,12 @@ void main() {
     // Finger in 3D space: screen X/Y mapped to world, Z forward
     vec2 fingerScreen = (u_touch - 0.5) * 2.0;  // -1 to 1
     
-    // Pyramid is at origin, finger is in front and to the side
+    // Pyramid is at origin, finger is closer for more direct pointing
     // Y inverted because screen Y=0 is top
     vec3 fingerWorld = vec3(
-        fingerScreen.x * u_aspect * 3.0,  // Scale to match pyramid size
-        -fingerScreen.y * 3.0,
-        5.0  // Finger is in front of pyramid
+        fingerScreen.x * u_aspect * 2.0,  // More direct pointing
+        -fingerScreen.y * 2.0,
+        2.0  // Finger closer to pyramid for steeper angle
     );
     
     // Direction from pyramid to finger
