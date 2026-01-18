@@ -86,12 +86,22 @@ precision highp float;
 uniform float u_flicker;
 uniform float u_time;
 void main() {
-    // Random glitch flicker - 20% chance of dimming at 15Hz
+    // RGB split glitch - check at 15Hz, 20% chance
     float glitchSeed = floor(u_time * 15.0);
     float glitchRand = fract(sin(glitchSeed * 78.233) * 43758.5);
-    float glitch = step(0.8, glitchRand) * 0.5;
-    float flicker = u_flicker * (1.0 - glitch);
-    vec3 col = vec3(0.8, 0.1, 1.0) * flicker;
+    float glitchActive = step(0.8, glitchRand);
+    
+    vec3 col;
+    if (glitchActive > 0.5) {
+        // RGB split - offset red and blue channels
+        col = vec3(1.0, 0.3, 0.1) * u_flicker;  // red-ish during glitch
+        float splitRand = fract(sin(glitchSeed * 127.1) * 43758.5);
+        if (splitRand > 0.5) {
+            col = vec3(0.1, 0.5, 1.2) * u_flicker;  // blue-ish
+        }
+    } else {
+        col = vec3(0.8, 0.1, 1.0) * u_flicker;  // normal purple
+    }
     gl_FragColor = vec4(col, 1.0);
 }
 `;
