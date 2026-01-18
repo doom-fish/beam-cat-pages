@@ -382,7 +382,7 @@ void main() {
         
         // Gentle dust drift when not touching
         float turbulence = sin(u_time * 1.5 + seed * 10.0) * 0.012 * phase;
-        float riseSpeed = phase * 0.06 * (0.3 + seed3 * 0.7);
+        float riseSpeed = phase * 0.06;
         float spread = (seed - 0.5) * 0.03 * phase;
         vec2 logoPos = spawnPos + vec2(spread + turbulence, riseSpeed);
         
