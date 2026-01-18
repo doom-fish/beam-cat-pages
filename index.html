@@ -378,8 +378,14 @@ function initAudio() {
     audioStarted = true;
     
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Resume audio context (required for iOS)
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    
     masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.15;
+    masterGain.gain.value = 0.4;
     masterGain.connect(audioCtx.destination);
     
     // Supersaw chord: D2, A2, D3, F#3, A3 (Dm add9 voicing)
@@ -388,7 +394,7 @@ function initAudio() {
     
     chordFreqs.forEach(freq => {
         const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.08;
+        noteGain.gain.value = 0.12;
         
         // Add filter for warmth
         const filter = audioCtx.createBiquadFilter();
