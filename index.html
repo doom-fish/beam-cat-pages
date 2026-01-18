@@ -323,8 +323,8 @@ void main() {
     col += vec3(0.4, 0.02, 0.6) * logoGlow * 2.0;
     
     // Dust particles - lerp between logo area and finger position
-    vec2 logoCenter = vec2(0.5, 0.47);
-    vec2 particleCenter = mix(logoCenter, u_touch, u_touching * 0.7);
+    vec2 particleOrigin = vec2(0.5, 0.47);
+    vec2 particleCenter = mix(particleOrigin, u_touch, u_touching * 0.7);
     
     for (float i = 0.0; i < 60.0; i += 1.0) {
         float seed = fract(sin(i * 127.1) * 43758.5);
