@@ -62,23 +62,35 @@ uniform vec2 u_touch;  // Touch/mouse position (0-1)
 
 void main() {
     float t = u_time;
-    // Base rotation + touch offset
-    float rotY = t * 0.15 + (u_touch.x - 0.5) * 0.8;
-    float rotX = (u_touch.y - 0.5) * 0.3;  // Slight tilt based on Y
-    
-    float cy = cos(rotY), sy = sin(rotY);
-    float cx = cos(rotX), sx = sin(rotX);
     vec3 p = a_pos * u_scale * 2.5;
     
-    // Y rotation
+    // Calculate direction to finger (in screen space)
+    vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
+    
+    // Tilt pyramid so apex points toward finger
+    float tiltX = -fingerDir.y * 0.5;  // Tilt forward/back based on Y
+    float tiltZ = fingerDir.x * 0.5;   // Tilt left/right based on X
+    
+    // Base slow rotation
+    float rotY = t * 0.15;
+    float cy = cos(rotY), sy = sin(rotY);
+    
+    // Apply base Y rotation first
     float x = p.x * cy - p.z * sy;
     float z = p.x * sy + p.z * cy;
     p.x = x; p.z = z;
     
-    // X rotation (tilt)
+    // Tilt X (forward/back) - apex looks up/down
+    float cx = cos(tiltX), sx = sin(tiltX);
     float y = p.y * cx - p.z * sx;
     z = p.y * sx + p.z * cx;
     p.y = y; p.z = z;
+    
+    // Tilt Z (left/right) - apex leans sideways
+    float cz = cos(tiltZ), sz = sin(tiltZ);
+    x = p.x * cz - p.y * sz;
+    y = p.x * sz + p.y * cz;
+    p.x = x; p.y = y;
     
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
