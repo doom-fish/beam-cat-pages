@@ -444,12 +444,40 @@ function hash(p) {
 let audioCtx = null;
 let masterGain = null;
 let oscillators = [];
+let chordOscillators = [];
 let glitchGain = null;
 let noiseNode = null;
 let audioStarted = false;
 
+// Minor chords from D minor scale
+const minorChords = [
+    [73.42, 87.31, 110, 146.83, 220],    // Dm: D2, F2, A2, D3, A3
+    [55, 65.41, 82.41, 110, 164.81],     // Am: A1, C2, E2, A2, E3
+    [82.41, 98, 123.47, 164.81, 246.94], // Em: E2, G2, B2, E3, B3
+    [98, 116.54, 146.83, 196, 293.66],   // Gm: G2, Bb2, D3, G3, D4
+    [61.74, 73.42, 92.5, 123.47, 185],   // Bm: B1, D2, F#2, B2, F#3
+];
+
+function changeChord() {
+    if (!audioCtx || chordOscillators.length === 0) return;
+    
+    const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
+    const now = audioCtx.currentTime;
+    
+    chordOscillators.forEach((osc, i) => {
+        const noteIndex = Math.floor(i / 7);  // 7 oscs per note
+        const targetFreq = chord[noteIndex];
+        osc.frequency.setTargetAtTime(targetFreq, now, 0.3);  // Quick glide
+    });
+    
+    triggerGlitchSound();
+}
+
 function initAudio() {
-    if (audioStarted) return;
+    if (audioStarted) {
+        changeChord();
+        return;
+    }
     audioStarted = true;
     
     const hint = document.getElementById('sound-hint');
@@ -473,15 +501,14 @@ function initAudio() {
     masterGain.gain.value = 0.15;
     masterGain.connect(audioCtx.destination);
     
-    // Rich supersaw - single Dm chord with 7 detuned oscillators per note
-    const chordFreqs = [73.42, 87.31, 110, 146.83, 220];  // Dm: D2, F2, A2, D3, A3
-    const superDetunes = [-25, -15, -7, 0, 7, 15, 25];  // Wide stereo spread
+    // Rich supersaw - start with random chord
+    const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
+    const superDetunes = [-25, -15, -7, 0, 7, 15, 25];
     
-    chordFreqs.forEach((freq, i) => {
+    chord.forEach((freq, i) => {
         const noteGain = audioCtx.createGain();
         noteGain.gain.value = 0.04;
         
-        // Warm filter
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.value = 600 + i * 150;
@@ -497,6 +524,7 @@ function initAudio() {
             osc.connect(filter);
             osc.start();
             oscillators.push(osc);
+            chordOscillators.push(osc);
         });
     });
     
@@ -527,13 +555,13 @@ function triggerGlitchSound() {
     if (!audioCtx || !glitchGain) return;
     const now = audioCtx.currentTime;
     glitchGain.gain.cancelScheduledValues(now);
-    glitchGain.gain.setValueAtTime(0.3, now);
-    glitchGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+    glitchGain.gain.setValueAtTime(0.6, now);  // Louder
+    glitchGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
 }
 
 // Start audio on user interaction
-document.addEventListener('click', initAudio, { once: true });
-document.addEventListener('touchend', initAudio, { once: true });
+document.addEventListener('click', initAudio);
+document.addEventListener('touchend', initAudio);
 
 const startTime = performance.now() / 1000;
 let lastGlitchState = false;
@@ -542,13 +570,15 @@ function fract(x) {
     return x - Math.floor(x);
 }
 
+let lastPyramidGlitchState = false;
+
 function render() {
     const t = performance.now() / 1000 - startTime;
     const aspect = w / h;
     const flicker = 0.9 + 0.1 * hash(Math.sin(t * 0.5));
     const scale = 0.55 + 0.03 * Math.cos(t);
     
-    // Check for glitch timing (exact sync with shader logic)
+    // Check for logo glitch timing (sync with shader)
     const timeSeed = Math.floor(t * 0.15);
     const intervalRand = fract(Math.sin(timeSeed * 127.1) * 43758.5);
     const interval = 5.0 + intervalRand * 6.0;
@@ -556,10 +586,23 @@ function render() {
     const flickerDuration = 0.12 + intervalRand * 0.15;
     const glitchActive = flickerPhase > (interval - flickerDuration);
     
+    // Check for pyramid RGB split timing (sync with shader)
+    const pyramidGlitchSeed = Math.floor(t * 0.2);
+    const pyramidGlitchRand = fract(Math.sin(pyramidGlitchSeed * 78.233) * 43758.5);
+    const pyramidGlitchPhase = fract(t * 0.2);
+    const pyramidGlitchActive = pyramidGlitchPhase > 0.92 && pyramidGlitchRand > 0.6;
+    
+    // Trigger sound on logo glitch
     if (glitchActive && !lastGlitchState) {
         triggerGlitchSound();
     }
     lastGlitchState = glitchActive;
+    
+    // Trigger sound on pyramid RGB split
+    if (pyramidGlitchActive && !lastPyramidGlitchState) {
+        triggerGlitchSound();
+    }
+    lastPyramidGlitchState = pyramidGlitchActive;
     
     // Render pyramid to FBO
     gl.bindFramebuffer(gl.FRAMEBUFFER, fboOrig);
