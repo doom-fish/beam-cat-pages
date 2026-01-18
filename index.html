@@ -69,14 +69,6 @@ void main() {
     vec2 proj = p.xy / d;
     proj.x /= u_aspect;
     
-    // Pyramid glitch offset - less frequent, more random
-    float pyramidGlitchSeed = floor(t * 0.25);
-    float pyramidGlitchRand = fract(sin(pyramidGlitchSeed * 43.7) * 12345.6);
-    float pyramidGlitchPhase = fract(t * 0.25);
-    float pyramidGlitchActive = step(0.9, pyramidGlitchPhase) * step(0.5, pyramidGlitchRand);
-    float jitterX = (fract(sin(floor(t * 25.0) * 78.2) * 43758.5) - 0.5) * 0.03 * pyramidGlitchActive;
-    proj.x += jitterX;
-    
     gl_Position = vec4(proj, 0.0, 1.0);
 }
 `;
