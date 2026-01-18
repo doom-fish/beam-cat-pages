@@ -170,6 +170,7 @@ uniform float u_time;
 uniform float u_aspect;
 uniform float u_logoAspect;
 uniform float u_clickGlitch;
+uniform float u_beatGlitch;  // Synced to drum pattern
 varying vec2 v_uv;
 
 void main() {
@@ -190,14 +191,8 @@ void main() {
     vec4 orig = texture2D(u_orig, v_uv);
     vec4 blur = texture2D(u_blur, v_uv);
     
-    // Pyramid RGB split glitch - less frequent, more random
-    float pyramidGlitchSeed = floor(u_time * 0.1);  // Slower auto glitch
-    float pyramidGlitchRand = fract(sin(pyramidGlitchSeed * 78.233) * 43758.5);
-    float pyramidGlitchPhase = fract(u_time * 0.1);
-    float pyramidGlitchActive = step(0.97, pyramidGlitchPhase) * step(0.85, pyramidGlitchRand);  // Rarer
-    
-    // Click triggers strong glitch - much stronger
-    pyramidGlitchActive = max(pyramidGlitchActive, u_clickGlitch * 1.5);
+    // Pyramid glitch - only on beat or click (no random)
+    float pyramidGlitchActive = max(u_beatGlitch, u_clickGlitch * 1.5);
     
     // Random RGB split offsets
     float splitSeed = floor(u_time * 15.0);
@@ -206,7 +201,7 @@ void main() {
     float splitRandX2 = (fract(sin(splitSeed * 419.2) * 43758.5) - 0.5) * 2.0;
     float splitRandY2 = (fract(sin(splitSeed * 531.7) * 43758.5) - 0.5) * 2.0;
     
-    float splitAmount = 0.005 * pyramidGlitchActive + 0.025 * u_clickGlitch;  // More from click
+    float splitAmount = 0.015 * pyramidGlitchActive + 0.025 * u_clickGlitch;  // Beat + click
     vec2 rOffset = vec2(splitRandX, splitRandY) * splitAmount;
     vec2 bOffset = vec2(splitRandX2, splitRandY2) * splitAmount;
     
@@ -243,15 +238,8 @@ void main() {
     float logoScale = 0.3;
     float logoHeight = logoScale / u_logoAspect;
     
-    float timeSeed = floor(u_time * 0.08);  // Much slower auto glitch
-    float intervalRand = fract(sin(timeSeed * 127.1) * 43758.5);
-    float interval = 8.0 + intervalRand * 10.0;  // Longer intervals
-    float flickerPhase = mod(u_time, interval);
-    float flickerDuration = 0.1 + intervalRand * 0.1;
-    float flickerActive = step(interval - flickerDuration, flickerPhase) * step(0.7, intervalRand);  // Rarer
-    
-    // Click overrides auto glitch
-    flickerActive = max(flickerActive, u_clickGlitch);
+    // Logo glitch only on beat or click (no random)
+    float flickerActive = max(u_beatGlitch * 0.8, u_clickGlitch);
     
     float jitterSeed = floor(u_time * 30.0);
     vec2 logoJitter = vec2(
@@ -803,12 +791,16 @@ function initAudio(e) {
                     kickOsc.frequency.exponentialRampToValueAtTime(40, arpTime + 0.1);
                     kickGain.gain.setValueAtTime(0.15 * drumVol, arpTime);
                     kickGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.15);
+                    // Glitch on kick
+                    beatGlitch = 1.0;
                 }
                 
                 if (step === 4 || step === 12) {
                     // Snare - noise burst
                     snareGain.gain.setValueAtTime(0.1 * drumVol, arpTime);
                     snareGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.1);
+                    // Glitch on snare
+                    beatGlitch = 0.7;
                 }
                 
                 if (step % 2 === 0) {
@@ -1043,10 +1035,13 @@ function render() {
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_aspect'), aspect);
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_logoAspect'), logoAspect);
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_clickGlitch'), clickGlitch);
+    gl.uniform1f(gl.getUniformLocation(compProg, 'u_beatGlitch'), beatGlitch);
     
-    // Decay click glitch
+    // Decay glitches
     clickGlitch *= 0.85;
     if (clickGlitch < 0.01) clickGlitch = 0;
+    beatGlitch *= 0.9;
+    if (beatGlitch < 0.01) beatGlitch = 0;
     
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     
