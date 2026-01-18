@@ -787,10 +787,9 @@ function changeChord(chordIndex) {
 
 // Start audio on user interaction - touchend is most reliable on iOS
 document.addEventListener('click', (e) => handleInteraction(e, true));
-document.addEventListener('touchend', (e) => handleInteraction(e, true));
-document.addEventListener('touchstart', (e) => {
-    // Don't preventDefault here - breaks iOS audio init
-    handleInteraction(e, false);  // Immediate response on touch
+document.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    handleInteraction(e, true);
 });
 document.addEventListener('touchmove', (e) => {
     e.preventDefault();
