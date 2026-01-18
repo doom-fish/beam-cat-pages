@@ -59,6 +59,7 @@ uniform float u_time;
 uniform float u_aspect;
 uniform float u_scale;
 uniform float u_rotation;  // Accumulated rotation angle (controlled by BPM in JS)
+uniform float u_touching;  // 1.0 if touching, 0.0 if not
 uniform vec2 u_touch;  // Touch/mouse position (0-1)
 
 // Rodrigues rotation: rotate vector p around axis k by angle theta
@@ -79,10 +80,11 @@ void main() {
     float dist = length(fingerDir);
     
     if (dist > 0.01) {
-        // Target direction: finger position + outward toward camera
+        // Target direction: finger position + outward toward camera (only when touching)
         vec3 up = vec3(0.0, 1.0, 0.0);  // Resting = pointing up
-        // Add positive Z to tilt toward camera, scaled by distance
-        vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, 0.3 + dist * 0.5));
+        // Only add camera tilt when actively touching
+        float cameraZ = u_touching > 0.5 ? (0.3 + dist * 0.5) : 0.1;
+        vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, cameraZ));
         
         // Rotation axis perpendicular to both
         vec3 axis = cross(up, target);
@@ -1020,6 +1022,7 @@ function render() {
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_scale'), scale);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_flicker'), flicker);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_rotation'), pyramidRotation);
+    gl.uniform1f(gl.getUniformLocation(octaProg, 'u_touching'), isTouching ? 1.0 : 0.0);
     
     // Smooth interpolation toward touch position
     const targetX = isTouching ? touchPos.x : 0.5;
