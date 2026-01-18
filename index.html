@@ -58,7 +58,7 @@ attribute vec3 a_pos;
 uniform float u_time;
 uniform float u_aspect;
 uniform float u_scale;
-uniform float u_bpm;    // Current BPM for rotation speed
+uniform float u_rotation;  // Accumulated rotation angle (controlled by BPM in JS)
 uniform vec2 u_touch;  // Touch/mouse position (0-1)
 
 // Rodrigues rotation: rotate vector p around axis k by angle theta
@@ -69,37 +69,32 @@ vec3 rotateAxis(vec3 p, vec3 k, float theta) {
 }
 
 void main() {
-    float t = u_time;
     vec3 p = a_pos * u_scale * 2.5;
     
-    // Base Y rotation (spin) - speed based on BPM (100=0.3, 160=0.8 rad/s)
-    float rotSpeed = 0.1 + (u_bpm - 100.0) / 120.0;
-    p = rotateAxis(p, vec3(0.0, 1.0, 0.0), t * rotSpeed);
+    // Base Y rotation (spin) - angle from JS (accumulated based on BPM)
+    p = rotateAxis(p, vec3(0.0, 1.0, 0.0), u_rotation);
     
-    // Only tilt if finger is away from center
+    // Tilt toward finger using axis-angle
     vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
     float dist = length(fingerDir);
     
-    // Only apply tilt if touching (dist > small threshold)
-    if (dist > 0.05) {
-        // Correct for aspect ratio
-        vec2 adjustedDir = vec2(fingerDir.x * u_aspect, fingerDir.y);
-        float adjustedDist = length(adjustedDir);
+    if (dist > 0.01) {
+        // Target direction: finger position mapped to 3D direction
+        // fingerDir.x = left/right, fingerDir.y = up/down on screen
+        // We want apex to point toward finger
+        vec3 up = vec3(0.0, 1.0, 0.0);
+        vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, 0.5));
         
-        // Tilt the pyramid toward the finger
-        // Rotate around X axis (tilt forward/back) based on fingerDir.y
-        // Rotate around Z axis (tilt left/right) based on fingerDir.x
-        float tiltAmount = min(adjustedDist * 1.5, 1.57);  // Max ~90 degrees
+        // Rotation axis perpendicular to both
+        vec3 axis = cross(up, target);
+        float axisLen = length(axis);
         
-        // Tilt forward/back (around X axis)
-        float tiltX = fingerDir.y * tiltAmount;
-        p = rotateAxis(p, vec3(1.0, 0.0, 0.0), tiltX);
-        
-        // Tilt left/right (around Z axis) 
-        float tiltZ = -fingerDir.x * tiltAmount;
-        p = rotateAxis(p, vec3(0.0, 0.0, 1.0), tiltZ);
+        if (axisLen > 0.001) {
+            axis = normalize(axis);
+            float angle = acos(clamp(dot(up, target), -1.0, 1.0));
+            p = rotateAxis(p, axis, angle);
+        }
     }
-    // When dist < 0.05 (resting), pyramid stays pointing up
     
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
@@ -501,6 +496,8 @@ let currentOctave = 4;  // Touch Y controls octave (2, 4, 8)
 let touchPos = { x: 0.5, y: 0.5 };  // Current touch/mouse position
 let smoothTouchPos = { x: 0.5, y: 0.5 };  // Smoothly interpolated position
 let isTouching = false;
+let pyramidRotation = 0;  // Accumulated rotation angle
+let lastFrameTime = 0;  // For delta time
 
 // Gate patterns - global for accelerometer access
 const gatePatterns = [
@@ -946,6 +943,13 @@ function render() {
     }
     lastPyramidGlitchState = pyramidGlitchActive;
     
+    // Update pyramid rotation based on BPM (accumulated, so BPM changes are smooth)
+    const now = performance.now() / 1000;
+    const deltaTime = lastFrameTime ? (now - lastFrameTime) : 0.016;
+    lastFrameTime = now;
+    const rotSpeed = 0.2 + (currentBpm - 100) / 100;  // 100 BPM = 0.2 rad/s, 160 BPM = 0.8 rad/s
+    pyramidRotation += deltaTime * rotSpeed;
+    
     // Render pyramid to FBO
     gl.bindFramebuffer(gl.FRAMEBUFFER, fboOrig);
     gl.viewport(0, 0, blurW, blurH);
@@ -961,7 +965,7 @@ function render() {
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_aspect'), aspect);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_scale'), scale);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_flicker'), flicker);
-    gl.uniform1f(gl.getUniformLocation(octaProg, 'u_bpm'), currentBpm);
+    gl.uniform1f(gl.getUniformLocation(octaProg, 'u_rotation'), pyramidRotation);
     
     // Smooth interpolation toward touch position
     const targetX = isTouching ? touchPos.x : 0.5;
