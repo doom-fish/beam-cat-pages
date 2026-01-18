@@ -537,9 +537,9 @@ function initAudio(e) {
     gateGain.gain.value = 1;
     gateGain.connect(masterGain);
     
-    // Gate rhythm - 8th notes at ~130 BPM for more prominent effect
-    const bpm = 130;
-    const gateInterval = 60 / bpm / 2;  // 8th note (slower, more noticeable)
+    // Gate rhythm - 16th notes at ~140 BPM for fast trance feel
+    const bpm = 140;
+    const gateInterval = 60 / bpm / 4;  // 16th note
     
     function runGate() {
         if (!audioCtx) return;
