@@ -74,7 +74,7 @@ void main() {
     float pyramidGlitchRand = fract(sin(pyramidGlitchSeed * 43.7) * 12345.6);
     float pyramidGlitchPhase = fract(t * 0.25);
     float pyramidGlitchActive = step(0.9, pyramidGlitchPhase) * step(0.5, pyramidGlitchRand);
-    float jitterX = (fract(sin(floor(t * 25.0) * 78.2) * 43758.5) - 0.5) * 0.1 * pyramidGlitchActive;
+    float jitterX = (fract(sin(floor(t * 25.0) * 78.2) * 43758.5) - 0.5) * 0.03 * pyramidGlitchActive;
     proj.x += jitterX;
     
     gl_Position = vec4(proj, 0.0, 1.0);
@@ -260,7 +260,7 @@ void main() {
     col += vec3(0.4, 0.02, 0.6) * logoGlow * 2.0;
     
     // Fire-like square pixel dust from logo text
-    for (float i = 0.0; i < 40.0; i += 1.0) {
+    for (float i = 0.0; i < 60.0; i += 1.0) {
         float seed = fract(sin(i * 127.1) * 43758.5);
         float seed2 = fract(sin(i * 269.5) * 43758.5);
         float seed3 = fract(sin(i * 419.2) * 43758.5);
@@ -273,7 +273,7 @@ void main() {
         // Sample logo at random UV to find text
         vec2 logoSampleUV = vec2(seed, seed2);
         float logoAlpha = texture2D(u_logo, logoSampleUV).a;
-        float fromText = step(0.5, logoAlpha);
+        float fromText = step(0.1, logoAlpha);  // More lenient
         
         // Convert logo UV to screen position
         float logoScale = 0.3;
