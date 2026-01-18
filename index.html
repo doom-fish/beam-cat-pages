@@ -537,18 +537,28 @@ function initAudio(e) {
     gateGain.gain.value = 1;
     gateGain.connect(masterGain);
     
-    // Gate rhythm - 16th notes at ~140 BPM for fast trance feel
-    const bpm = 140;
-    const gateInterval = 60 / bpm / 4;  // 16th note
+    // Gate rhythm - 16th notes at 128 BPM with syncopation pattern
+    const bpm = 128;
+    const sixteenth = 60 / bpm / 4;
+    
+    // Syncopated pattern: accent positions in 16-step loop
+    // 1 = full hit, 0.6 = ghost note, 0 = silent
+    const pattern = [1, 0.3, 0.6, 0.3, 1, 0, 0.8, 0.4, 1, 0.3, 0.6, 0.5, 1, 0.4, 0.7, 0];
+    let stepIndex = 0;
     
     function runGate() {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
+        const accent = pattern[stepIndex % pattern.length];
+        stepIndex++;
+        
         gateGain.gain.cancelScheduledValues(now);
-        gateGain.gain.setValueAtTime(1, now);
-        gateGain.gain.exponentialRampToValueAtTime(0.05, now + gateInterval * 0.5);
-        gateGain.gain.setValueAtTime(0, now + gateInterval * 0.8);
-        setTimeout(runGate, gateInterval * 1000);
+        if (accent > 0) {
+            gateGain.gain.setValueAtTime(accent, now);
+            gateGain.gain.exponentialRampToValueAtTime(0.05, now + sixteenth * 0.6);
+        }
+        gateGain.gain.setValueAtTime(0, now + sixteenth * 0.9);
+        setTimeout(runGate, sixteenth * 1000);
     }
     runGate();
     
@@ -580,8 +590,8 @@ function initAudio(e) {
         const now = audioCtx.currentTime;
         bassFilter.frequency.cancelScheduledValues(now);
         bassFilter.frequency.setValueAtTime(1200, now);  // Start high
-        bassFilter.frequency.exponentialRampToValueAtTime(200, now + gateInterval * 0.8);  // Sweep down
-        setTimeout(sweepFilter, gateInterval * 1000);
+        bassFilter.frequency.exponentialRampToValueAtTime(200, now + sixteenth * 0.8);  // Sweep down
+        setTimeout(sweepFilter, sixteenth * 1000);
     }
     sweepFilter();
     
