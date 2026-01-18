@@ -99,26 +99,29 @@ void main() {
     vec4 spinQ = qaxis(vec3(0.0, 1.0, 0.0), u_rotation);
     p = qrot(spinQ, p);
     
-    // Calculate tilt from finger position
-    // u_touch is 0-1, center is (0.5, 0.5)
-    vec2 offset = (u_touch - 0.5) * 2.0;  // -1 to 1
+    // Calculate 3D pointing direction from pyramid to finger
+    // u_touch is 0-1, convert to screen position and create 3D target
+    vec2 fingerScreen = (u_touch - 0.5) * 2.0;  // -1 to 1
     
-    // Decompose into two rotations:
-    // - offset.x controls tilt LEFT/RIGHT (rotate around Z axis)
-    // - offset.y controls tilt UP/DOWN (rotate around X axis)
-    float tiltX = -offset.y * 1.0 * u_touching;  // Negative because screen Y is inverted
-    float tiltZ = -offset.x * u_aspect * 0.7 * u_touching;
+    // Finger position in 3D: X/Y on screen plane, Z is toward viewer
+    // Screen Y is inverted (0=top), so negate Y
+    vec3 fingerPos3D = vec3(fingerScreen.x * u_aspect, -fingerScreen.y, 2.0);
     
-    // Apply X tilt (forward/back = up/down on screen)
-    if (abs(tiltX) > 0.001) {
-        vec4 tiltQx = qaxis(vec3(1.0, 0.0, 0.0), tiltX);
-        p = qrot(tiltQx, p);
-    }
+    // Pyramid tip is at origin pointing up (+Y)
+    // We want to rotate so tip points toward fingerPos3D
+    vec3 up = vec3(0.0, 1.0, 0.0);
+    vec3 toFinger = normalize(fingerPos3D);
     
-    // Apply Z tilt (left/right)
-    if (abs(tiltZ) > 0.001) {
-        vec4 tiltQz = qaxis(vec3(0.0, 0.0, 1.0), tiltZ);
-        p = qrot(tiltQz, p);
+    // Calculate rotation from up to toFinger
+    float dotUp = dot(up, toFinger);
+    vec3 rotAxis = cross(up, toFinger);
+    float axisLen = length(rotAxis);
+    
+    if (axisLen > 0.001 && u_touching > 0.001) {
+        rotAxis = normalize(rotAxis);
+        float angle = acos(clamp(dotUp, -1.0, 1.0)) * u_touching;
+        vec4 pointQ = qaxis(rotAxis, angle);
+        p = qrot(pointQ, p);
     }
     
     float d = 8.0 - p.z * 0.3;
@@ -361,8 +364,9 @@ void main() {
         float spread = (seed - 0.5) * 0.03 * phase;
         vec2 logoPos = spawnPos + vec2(spread + turbulence, riseSpeed);
         
-        // Lerp between logo position and finger ring position
-        vec2 particlePos = mix(logoPos, fingerRingPos, u_touching);
+        // Instant switch: ring at finger when touching, logo dust when not
+        // Use step for instant response, no lerp
+        vec2 particlePos = u_touching > 0.5 ? fingerRingPos : logoPos;
         
         // Bigger square pixels - aspect corrected
         float size = 0.002 + seed3 * 0.001;
