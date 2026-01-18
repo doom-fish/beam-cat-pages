@@ -537,30 +537,45 @@ function initAudio(e) {
     gateGain.gain.value = 1;
     gateGain.connect(masterGain);
     
-    // Gate rhythm - 16th notes at 128 BPM with syncopation pattern
+    // Gate rhythm - 16th notes at 128 BPM with syncopation
     const bpm = 128;
     const sixteenth = 60 / bpm / 4;
     
-    // Syncopated pattern: accent positions in 16-step loop
-    // 1 = full hit, 0.6 = ghost note, 0 = silent
-    const pattern = [1, 0.3, 0.6, 0.3, 1, 0, 0.8, 0.4, 1, 0.3, 0.6, 0.5, 1, 0.4, 0.7, 0];
+    // Base patterns - will randomize between cycles
+    const patterns = [
+        [1, 0.3, 0.6, 0.3, 1, 0, 0.8, 0.4, 1, 0.3, 0.6, 0.5, 1, 0.4, 0.7, 0],
+        [1, 0, 0.7, 0.5, 1, 0.3, 0.5, 0, 1, 0.4, 0.8, 0.3, 1, 0, 0.6, 0.4],
+        [1, 0.4, 0.5, 0, 1, 0.5, 0.7, 0.3, 1, 0, 0.6, 0.4, 1, 0.3, 0.8, 0],
+    ];
+    let pattern = patterns[0];
     let stepIndex = 0;
+    let nextStepTime = audioCtx.currentTime;
     
-    function runGate() {
+    function scheduleGate() {
         if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        const accent = pattern[stepIndex % pattern.length];
-        stepIndex++;
         
-        gateGain.gain.cancelScheduledValues(now);
-        if (accent > 0) {
-            gateGain.gain.setValueAtTime(accent, now);
-            gateGain.gain.exponentialRampToValueAtTime(0.05, now + sixteenth * 0.6);
+        // Schedule ahead for tight timing
+        while (nextStepTime < audioCtx.currentTime + 0.1) {
+            const accent = pattern[stepIndex % 16] * (0.85 + Math.random() * 0.3);  // Slight random variation
+            
+            if (accent > 0.1) {
+                gateGain.gain.setValueAtTime(Math.min(accent, 1), nextStepTime);
+                gateGain.gain.exponentialRampToValueAtTime(0.05, nextStepTime + sixteenth * 0.6);
+            }
+            gateGain.gain.setValueAtTime(0, nextStepTime + sixteenth * 0.9);
+            
+            stepIndex++;
+            
+            // Random pattern change every cycle
+            if (stepIndex % 16 === 0) {
+                pattern = patterns[Math.floor(Math.random() * patterns.length)];
+            }
+            
+            nextStepTime += sixteenth;
         }
-        gateGain.gain.setValueAtTime(0, now + sixteenth * 0.9);
-        setTimeout(runGate, sixteenth * 1000);
+        setTimeout(scheduleGate, 50);  // Check every 50ms
     }
-    runGate();
+    scheduleGate();
     
     // 303-style acid bass - sawtooth with resonant filter sweeps
     const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
