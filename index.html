@@ -71,8 +71,11 @@ vec3 rotateAxis(vec3 p, vec3 k, float theta) {
 void main() {
     vec3 p = a_pos * u_scale * 2.5;
     
+    // Start with pyramid pointing toward user (tilt 90 degrees forward)
+    p = rotateAxis(p, vec3(1.0, 0.0, 0.0), 1.5708);  // 90 degrees = pi/2
+    
     // Base Y rotation (spin) - angle from JS (accumulated based on BPM)
-    p = rotateAxis(p, vec3(0.0, 1.0, 0.0), u_rotation);
+    p = rotateAxis(p, vec3(0.0, 0.0, 1.0), u_rotation);  // Spin around Z (facing user)
     
     // Tilt toward finger using axis-angle
     vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
@@ -80,18 +83,16 @@ void main() {
     
     if (dist > 0.01) {
         // Target direction: finger position mapped to 3D direction
-        // fingerDir.x = left/right, fingerDir.y = up/down on screen
-        // We want apex to point toward finger
-        vec3 up = vec3(0.0, 1.0, 0.0);
+        vec3 forward = vec3(0.0, 0.0, 1.0);  // Resting = pointing at user
         vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, 0.5));
         
         // Rotation axis perpendicular to both
-        vec3 axis = cross(up, target);
+        vec3 axis = cross(forward, target);
         float axisLen = length(axis);
         
         if (axisLen > 0.001) {
             axis = normalize(axis);
-            float angle = acos(clamp(dot(up, target), -1.0, 1.0));
+            float angle = acos(clamp(dot(forward, target), -1.0, 1.0));
             p = rotateAxis(p, axis, angle);
         }
     }
