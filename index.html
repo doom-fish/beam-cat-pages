@@ -259,36 +259,41 @@ void main() {
     }
     col += vec3(0.4, 0.02, 0.6) * logoGlow * 2.0;
     
-    // Magical dust particles floating from logo
-    float numParticles = 25.0;
-    for (float i = 0.0; i < 25.0; i += 1.0) {
+    // Square pixel dust particles from logo
+    for (float i = 0.0; i < 30.0; i += 1.0) {
         float seed = fract(sin(i * 127.1) * 43758.5);
         float seed2 = fract(sin(i * 269.5) * 43758.5);
         float seed3 = fract(sin(i * 419.2) * 43758.5);
+        float seed4 = fract(sin(i * 631.7) * 43758.5);
         
-        // Particle lifetime and phase
-        float lifetime = 4.0 + seed * 3.0;  // 4-7 seconds
-        float phase = fract((u_time + seed * 10.0) / lifetime);
-        float fade = smoothstep(0.0, 0.1, phase) * smoothstep(1.0, 0.8, phase);
+        // Slower particle lifetime
+        float lifetime = 6.0 + seed * 6.0;
+        float phase = fract((u_time * 0.3 + seed * 20.0) / lifetime);
+        float fade = smoothstep(0.0, 0.2, phase) * smoothstep(1.0, 0.7, phase);
         
-        // Start from logo area, drift upward and sideways
-        float startX = 0.35 + seed * 0.3;  // Logo width area
-        float startY = 0.42 + seed2 * 0.1;  // Logo height area
-        float driftX = (seed2 - 0.5) * 0.15 * phase;
-        float driftY = phase * 0.12 + sin(u_time * 0.5 + seed * 6.28) * 0.01;
+        // Spawn from logo area
+        vec2 logoWorldPos = vec2(
+            0.5 + (seed - 0.5) * 0.3 / u_aspect,
+            0.47 + (seed2 - 0.5) * 0.1
+        );
         
-        vec2 particlePos = vec2(startX + driftX, startY + driftY);
+        // Slow gentle drift
+        float turbulence = sin(u_time * 0.5 + seed * 10.0) * 0.015 * phase;
+        float riseSpeed = phase * 0.04 * (0.5 + seed3);
+        float spread = (seed2 - 0.5) * 0.04 * phase;
         
-        // Particle size and shape
+        vec2 particlePos = logoWorldPos + vec2(spread + turbulence, riseSpeed);
+        
+        // Square shape
         float size = 0.002 + seed3 * 0.002;
-        float dist = length(v_uv - particlePos);
-        float particle = smoothstep(size, size * 0.3, dist);
+        vec2 diff = abs(v_uv - particlePos);
+        float particle = step(diff.x, size) * step(diff.y, size);
         
-        // Twinkle
-        float twinkle = 0.5 + 0.5 * sin(u_time * (3.0 + seed * 4.0) + seed * 6.28);
+        // Gentle flicker
+        float flicker = 0.7 + 0.3 * fract(sin(u_time * 2.0 + i * 3.7) * 43758.5);
         
-        vec3 dustColor = vec3(0.9, 0.7, 1.0) * particle * fade * twinkle * 0.4;
-        col += dustColor;
+        vec3 dustColor = mix(vec3(1.0, 0.8, 1.0), vec3(0.6, 0.2, 0.9), phase);
+        col += dustColor * particle * fade * flicker * 0.5;
     }
     
     if (glitchUV.x >= 0.0 && glitchUV.x <= 1.0 && glitchUV.y >= 0.0 && glitchUV.y <= 1.0) {
