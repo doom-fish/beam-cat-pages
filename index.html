@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laser Kiosk</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; overflow: hidden; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+// Pyramid geometry
+const pyramidVertices = (() => {
+    const p = [
+        [0, 1, 0],      // apex
+        [-1, -1, -1],   // base front-left
+        [1, -1, -1],    // base front-right
+        [1, -1, 1],     // base back-right
+        [-1, -1, 1]     // base back-left
+    ];
+    const edges = [
+        [0, 1], [0, 2], [0, 3], [0, 4],  // apex to base
+        [1, 2], [2, 3], [3, 4], [4, 1]   // base square
+    ];
+    const verts = [];
+    for (const [i1, i2] of edges) {
+        verts.push(...p[i1], ...p[i2]);
+    }
+    return new Float32Array(verts);
+})();
+
+const quadVertices = new Float32Array([-1,-1, 1,-1, -1,1, 1,-1, 1,1, -1,1]);
+
+// Shaders
+const OCTA_VS = `
+attribute vec3 a_pos;
+uniform float u_time;
+uniform float u_aspect;
+uniform float u_scale;
+
+void main() {
+    float t = u_time;
+    float rotY = t * 0.3;
+    float cy = cos(rotY), sy = sin(rotY);
+    vec3 p = a_pos * u_scale * 2.5;
+    
+    float x = p.x * cy - p.z * sy;
+    float z = p.x * sy + p.z * cy;
+    p.x = x; p.z = z;
+    
+    float d = 8.0 - p.z * 0.3;
+    vec2 proj = p.xy / d;
+    proj.x /= u_aspect;
+    gl_Position = vec4(proj, 0.0, 1.0);
+}
+`;
+
+const OCTA_FS = `
+precision highp float;
+uniform float u_flicker;
+uniform float u_time;
+void main() {
+    float glitchSeed = floor(u_time * 20.0);
+    float glitchRand = fract(sin(glitchSeed * 78.233) * 43758.5);
+    float glitch = step(0.85, glitchRand) * 0.5;
+    float flicker = u_flicker * (1.0 - glitch);
+    vec3 col = vec3(0.8, 0.1, 1.0) * flicker;
+    gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+const BLUR_VS = `
+attribute vec2 a_pos;
+varying vec2 v_uv;
+void main() {
+    gl_Position = vec4(a_pos, 0.0, 1.0);
+    v_uv = a_pos * 0.5 + 0.5;
+}
+`;
+
+const BLUR_FS = `
+precision highp float;
+uniform sampler2D u_tex;
+uniform vec2 u_dir;
+uniform vec2 u_res;
+varying vec2 v_uv;
+void main() {
+    vec2 px = 1.0 / u_res;
+    vec4 col = vec4(0.0);
+    col += texture2D(u_tex, v_uv - 6.0 * u_dir * px) * 0.006;
+    col += texture2D(u_tex, v_uv - 5.0 * u_dir * px) * 0.018;
+    col += texture2D(u_tex, v_uv - 4.0 * u_dir * px) * 0.045;
+    col += texture2D(u_tex, v_uv - 3.0 * u_dir * px) * 0.090;
+    col += texture2D(u_tex, v_uv - 2.0 * u_dir * px) * 0.140;
+    col += texture2D(u_tex, v_uv - 1.0 * u_dir * px) * 0.175;
+    col += texture2D(u_tex, v_uv) * 0.200;
+    col += texture2D(u_tex, v_uv + 1.0 * u_dir * px) * 0.175;
+    col += texture2D(u_tex, v_uv + 2.0 * u_dir * px) * 0.140;
+    col += texture2D(u_tex, v_uv + 3.0 * u_dir * px) * 0.090;
+    col += texture2D(u_tex, v_uv + 4.0 * u_dir * px) * 0.045;
+    col += texture2D(u_tex, v_uv + 5.0 * u_dir * px) * 0.018;
+    col += texture2D(u_tex, v_uv + 6.0 * u_dir * px) * 0.006;
+    gl_FragColor = col;
+}
+`;
+
+const COMP_VS = `
+attribute vec2 a_pos;
+varying vec2 v_uv;
+void main() {
+    gl_Position = vec4(a_pos, 0.0, 1.0);
+    v_uv = a_pos * 0.5 + 0.5;
+}
+`;
+
+const COMP_FS = `
+precision highp float;
+uniform sampler2D u_orig;
+uniform sampler2D u_blur;
+uniform sampler2D u_logo;
+uniform float u_time;
+uniform float u_aspect;
+uniform float u_logoAspect;
+varying vec2 v_uv;
+
+void main() {
+    vec4 orig = texture2D(u_orig, v_uv);
+    vec4 blur = texture2D(u_blur, v_uv);
+    vec2 center = vec2(0.5, 0.5);
+    vec2 uv = v_uv;
+    uv.x = (uv.x - 0.5) * u_aspect + 0.5;
+    float dist = length(uv - center);
+    float flicker = 0.85 + 0.15 * sin(u_time * 20.0) * sin(u_time * 31.0) * sin(u_time * 7.0);
+    float ambient = exp(-dist * dist * 1.5) * 1.5 * flicker;
+    ambient = clamp(ambient, 0.0, 1.0);
+    vec3 ambientColor = vec3(0.15, 0.01, 0.35) * ambient;
+    vec3 core = orig.rgb * 1.5;
+    vec3 glow = blur.rgb;
+    glow.r *= 0.8;
+    glow.g *= 0.1;
+    glow.b *= 1.5;
+    vec3 col = ambientColor + core + glow * 6.0;
+    
+    // Logo
+    float logoScale = 0.3;
+    float logoHeight = logoScale / u_logoAspect;
+    
+    float timeSeed = floor(u_time * 0.15);
+    float intervalRand = fract(sin(timeSeed * 127.1) * 43758.5);
+    float interval = 5.0 + intervalRand * 5.0;
+    float flickerPhase = mod(u_time, interval);
+    float flickerDuration = 0.15 + intervalRand * 0.25;
+    float flickerActive = step(interval - flickerDuration, flickerPhase);
+    
+    float jitterSeed = floor(u_time * 30.0);
+    vec2 logoJitter = vec2(
+        (fract(sin(jitterSeed * 127.1) * 43758.5) - 0.5) * 0.015,
+        (fract(sin(jitterSeed * 269.5) * 43758.5) - 0.5) * 0.012
+    ) * flickerActive;
+    
+    vec2 logoCenter = vec2(0.5, 0.47) + logoJitter;
+    vec2 logoUV = (v_uv - logoCenter) / vec2(logoScale, logoHeight) + 0.5;
+    logoUV.x = (logoUV.x - 0.5) * u_aspect + 0.5;
+    logoUV.y = 1.0 - logoUV.y;
+    
+    float glitchTime = floor(u_time * 12.0);
+    float glitchRand = fract(sin(glitchTime * 43.758) * 12345.6);
+    float glitchActive = step(0.5, glitchRand);
+    
+    float sliceY = floor(logoUV.y * 16.0);
+    float sliceRand = fract(sin(sliceY * 91.2 + glitchTime) * 43758.5);
+    float sliceOffset = (sliceRand - 0.5) * 0.25 * glitchActive * step(0.4, sliceRand);
+    
+    vec2 glitchUV = logoUV;
+    glitchUV.x += sliceOffset;
+    
+    // Logo glow
+    float logoGlow = 0.0;
+    for (float ox = -2.0; ox <= 2.0; ox += 1.0) {
+        for (float oy = -2.0; oy <= 2.0; oy += 1.0) {
+            vec2 offset = vec2(ox * 0.02, oy * 0.02);
+            vec2 sampleUV = glitchUV + offset;
+            if (sampleUV.x >= 0.0 && sampleUV.x <= 1.0 && sampleUV.y >= 0.0 && sampleUV.y <= 1.0) {
+                logoGlow += texture2D(u_logo, sampleUV).a * 0.03;
+            }
+        }
+    }
+    col += vec3(0.4, 0.02, 0.6) * logoGlow * 2.0;
+    
+    if (glitchUV.x >= 0.0 && glitchUV.x <= 1.0 && glitchUV.y >= 0.0 && glitchUV.y <= 1.0) {
+        vec4 logo = texture2D(u_logo, glitchUV);
+        float logoFlicker = mix(1.0, 0.92 + 0.08 * step(0.7, fract(sin(u_time * 43.0) * 12345.6)), flickerActive);
+        vec3 laserColor = vec3(1.0, 0.6, 1.0) * logoFlicker;
+        if (glitchActive > 0.5) {
+            vec4 logoR = texture2D(u_logo, glitchUV + vec2(0.03, 0.0));
+            vec4 logoB = texture2D(u_logo, glitchUV - vec2(0.03, 0.0));
+            laserColor = vec3(logoR.a * 1.0, logo.a * 0.5, logoB.a * 1.2) * logoFlicker;
+            col = mix(col, laserColor, max(logo.a, max(logoR.a, logoB.a)));
+        } else {
+            col = mix(col, laserColor, logo.a);
+        }
+    }
+    
+    // RGB glitch post-process
+    if (flickerActive > 0.5) {
+        float glitchSeed = floor(u_time * 12.0);
+        float glitchPause = step(0.6, fract(sin(glitchSeed * 91.7) * 43758.5));
+        if (glitchPause < 0.5) {
+            float rgbOffset = 0.008;
+            vec3 colR = texture2D(u_orig, v_uv + vec2(rgbOffset, 0.0)).rgb + texture2D(u_blur, v_uv + vec2(rgbOffset, 0.0)).rgb * 6.0;
+            vec3 colB = texture2D(u_orig, v_uv - vec2(rgbOffset, 0.0)).rgb + texture2D(u_blur, v_uv - vec2(rgbOffset, 0.0)).rgb * 6.0;
+            col = vec3(colR.r, col.g * 0.5, colB.b);
+        }
+    }
+    
+    gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+}
+`;
+
+// WebGL setup
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl', { antialias: false });
+
+function createShader(type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(shader));
+        return null;
+    }
+    return shader;
+}
+
+function createProgram(vs, fs) {
+    const prog = gl.createProgram();
+    gl.attachShader(prog, createShader(gl.VERTEX_SHADER, vs));
+    gl.attachShader(prog, createShader(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        console.error(gl.getProgramInfoLog(prog));
+        return null;
+    }
+    return prog;
+}
+
+function createTexture(w, h) {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return tex;
+}
+
+function createFBO(tex) {
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    return fbo;
+}
+
+// Programs
+const octaProg = createProgram(OCTA_VS, OCTA_FS);
+const blurProg = createProgram(BLUR_VS, BLUR_FS);
+const compProg = createProgram(COMP_VS, COMP_FS);
+
+// Buffers
+const pyramidBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, pyramidBuffer);
+gl.bufferData(gl.ARRAY_BUFFER, pyramidVertices, gl.STATIC_DRAW);
+
+const quadBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
+
+// Resize handling
+let w, h, blurW, blurH;
+let texOrig, texBlur1, texBlur2, fboOrig, fboBlur1, fboBlur2;
+
+function resize() {
+    w = canvas.width = window.innerWidth * devicePixelRatio;
+    h = canvas.height = window.innerHeight * devicePixelRatio;
+    blurW = Math.floor(w * 0.75);
+    blurH = Math.floor(h * 0.75);
+    
+    texOrig = createTexture(blurW, blurH);
+    texBlur1 = createTexture(blurW, blurH);
+    texBlur2 = createTexture(blurW, blurH);
+    fboOrig = createFBO(texOrig);
+    fboBlur1 = createFBO(texBlur1);
+    fboBlur2 = createFBO(texBlur2);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Load logo
+const logoTex = gl.createTexture();
+let logoAspect = 1;
+const logoImg = new Image();
+logoImg.crossOrigin = 'anonymous';
+logoImg.onload = () => {
+    logoAspect = logoImg.width / logoImg.height;
+    gl.bindTexture(gl.TEXTURE_2D, logoTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, logoImg);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+};
+logoImg.src = 'logos/psychodrama.png';
+
+function hash(p) {
+    const p3 = (p * 0.1031) % 1.0;
+    return ((p3 + p3 * (p3 + 19.19)) * (p3 + p3 * (p3 + 19.19))) % 1.0;
+}
+
+const startTime = performance.now() / 1000;
+
+function render() {
+    const t = performance.now() / 1000 - startTime;
+    const aspect = w / h;
+    const flicker = 0.75 + 0.25 * hash(Math.sin(t * 5.0));
+    const scale = 0.55 + 0.03 * Math.cos(t);
+    
+    // Render pyramid to FBO
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fboOrig);
+    gl.viewport(0, 0, blurW, blurH);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    
+    gl.useProgram(octaProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, pyramidBuffer);
+    const aPosOcta = gl.getAttribLocation(octaProg, 'a_pos');
+    gl.enableVertexAttribArray(aPosOcta);
+    gl.vertexAttribPointer(aPosOcta, 3, gl.FLOAT, false, 0, 0);
+    gl.uniform1f(gl.getUniformLocation(octaProg, 'u_time'), t);
+    gl.uniform1f(gl.getUniformLocation(octaProg, 'u_aspect'), aspect);
+    gl.uniform1f(gl.getUniformLocation(octaProg, 'u_scale'), scale);
+    gl.uniform1f(gl.getUniformLocation(octaProg, 'u_flicker'), flicker);
+    gl.lineWidth(2);
+    gl.drawArrays(gl.LINES, 0, pyramidVertices.length / 3);
+    
+    // Blur passes
+    gl.useProgram(blurProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+    const aPosBlur = gl.getAttribLocation(blurProg, 'a_pos');
+    gl.enableVertexAttribArray(aPosBlur);
+    gl.vertexAttribPointer(aPosBlur, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(gl.getUniformLocation(blurProg, 'u_res'), blurW, blurH);
+    
+    // Pass 1: horiz
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fboBlur1);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texOrig);
+    gl.uniform1i(gl.getUniformLocation(blurProg, 'u_tex'), 0);
+    gl.uniform2f(gl.getUniformLocation(blurProg, 'u_dir'), 2, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    
+    // Pass 2: vert
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fboBlur2);
+    gl.bindTexture(gl.TEXTURE_2D, texBlur1);
+    gl.uniform2f(gl.getUniformLocation(blurProg, 'u_dir'), 0, 2);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    
+    // Pass 3: horiz wider
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fboBlur1);
+    gl.bindTexture(gl.TEXTURE_2D, texBlur2);
+    gl.uniform2f(gl.getUniformLocation(blurProg, 'u_dir'), 3, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    
+    // Pass 4: vert wider
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fboBlur2);
+    gl.bindTexture(gl.TEXTURE_2D, texBlur1);
+    gl.uniform2f(gl.getUniformLocation(blurProg, 'u_dir'), 0, 3);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    
+    // Composite to screen
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, w, h);
+    
+    gl.useProgram(compProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+    const aPosComp = gl.getAttribLocation(compProg, 'a_pos');
+    gl.enableVertexAttribArray(aPosComp);
+    gl.vertexAttribPointer(aPosComp, 2, gl.FLOAT, false, 0, 0);
+    
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texOrig);
+    gl.uniform1i(gl.getUniformLocation(compProg, 'u_orig'), 0);
+    
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, texBlur2);
+    gl.uniform1i(gl.getUniformLocation(compProg, 'u_blur'), 1);
+    
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, logoTex);
+    gl.uniform1i(gl.getUniformLocation(compProg, 'u_logo'), 2);
+    
+    gl.uniform1f(gl.getUniformLocation(compProg, 'u_time'), t);
+    gl.uniform1f(gl.getUniformLocation(compProg, 'u_aspect'), aspect);
+    gl.uniform1f(gl.getUniformLocation(compProg, 'u_logoAspect'), logoAspect);
+    
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    
+    requestAnimationFrame(render);
+}
+
+render();
+    </script>
+</body>
+</html>
