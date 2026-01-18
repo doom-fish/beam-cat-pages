@@ -718,52 +718,26 @@ function initAudio(e) {
     
     // Touch control state
     window.jamState = {
-        intensity: 0.5,    // Grid controls energy level
+        intensity: 0.5,
         octaveShift: 1,
     };
     
-    // Bass - pulse wave (SID's classic sound)
+    // Simple 3-voice setup like C64 SID
+    
+    // Voice 1: Bass - square
     const bassOsc = audioCtx.createOscillator();
-    bassOsc.type = 'square';  // Punchy 8-bit bass
+    bassOsc.type = 'square';
     bassOsc.frequency.value = chord[0];
     const bassGain = audioCtx.createGain();
-    bassGain.gain.value = 0.06;
+    bassGain.gain.value = 0.08;
     bassOsc.connect(bassGain);
     bassGain.connect(masterGain);
     bassOsc.start();
     oscillators.push(bassOsc);
     
-    // Chord voices - mixed waveforms like real SID
-    const chordGain = audioCtx.createGain();
-    chordGain.gain.value = 0.05;
-    chordGain.connect(masterGain);
-    chordGain.connect(delay);
-    
-    const triangleGain = audioCtx.createGain();
-    triangleGain.gain.value = 0;  // Controlled by pattern
-    triangleGain.connect(masterGain);
-    triangleGain.connect(delay);
-    
-    const chordOscs = [];
-    // SID has 3 voices: use pulse/saw/triangle mix
-    const sidWaveforms = ['sawtooth', 'square', 'triangle'];
-    for (let i = 0; i < 3; i++) {
-        const osc = audioCtx.createOscillator();
-        osc.type = sidWaveforms[i];  // Mixed waveforms like SID
-        osc.frequency.value = chord[i];
-        if (i === 2) {
-            osc.connect(triangleGain);
-        } else {
-            osc.connect(chordGain);
-        }
-        osc.start();
-        oscillators.push(osc);
-        chordOscs.push(osc);
-    }
-    
-    // Pure 8-bit lead - pulse/square waves only, no filters
+    // Voice 2: Lead - square  
     const leadOsc = audioCtx.createOscillator();
-    leadOsc.type = 'square';  // Classic chiptune
+    leadOsc.type = 'square';
     leadOsc.frequency.value = chord[0] * 2;
     const leadGain = audioCtx.createGain();
     leadGain.gain.value = 0;
@@ -773,41 +747,19 @@ function initAudio(e) {
     leadOsc.start();
     oscillators.push(leadOsc);
     
-    // Second lead - square one octave up for brightness
-    const leadOsc2 = audioCtx.createOscillator();
-    leadOsc2.type = 'square';
-    leadOsc2.frequency.value = chord[0] * 4;  // Octave up
-    const leadGain2 = audioCtx.createGain();
-    leadGain2.gain.value = 0;
-    leadOsc2.connect(leadGain2);
-    leadGain2.connect(masterGain);
-    leadOsc2.start();
-    oscillators.push(leadOsc2);
-    
-    // Third lead - triangle for warmth
-    const leadOsc3 = audioCtx.createOscillator();
-    leadOsc3.type = 'triangle';
-    leadOsc3.frequency.value = chord[0] * 2;
-    const leadGain3 = audioCtx.createGain();
-    leadGain3.gain.value = 0;
-    leadOsc3.connect(leadGain3);
-    leadGain3.connect(masterGain);
-    leadOsc3.start();
-    oscillators.push(leadOsc3);
-    
-    // Sub bass - triangle (SID triangle is very pure) - deeper for synthwave
-    const subOsc = audioCtx.createOscillator();
-    subOsc.type = 'triangle';
-    subOsc.frequency.value = chord[0] / 4;  // Two octaves below for deep bass
-    const subGain = audioCtx.createGain();
-    subGain.gain.value = 0.1;  // Louder sub for that synthwave weight
-    subOsc.connect(subGain);
-    subGain.connect(masterGain);
-    subOsc.start();
-    oscillators.push(subOsc);
+    // Voice 3: Pad/chord - triangle
+    const padOsc = audioCtx.createOscillator();
+    padOsc.type = 'triangle';
+    padOsc.frequency.value = chord[2];
+    const padGain = audioCtx.createGain();
+    padGain.gain.value = 0.04;
+    padOsc.connect(padGain);
+    padGain.connect(masterGain);
+    padOsc.start();
+    oscillators.push(padOsc);
     
     // 8-bit drums
-    // Kick - triangle wave with pitch envelope (SID style)
+    // Kick - triangle wave with pitch envelope
     const kickOsc = audioCtx.createOscillator();
     kickOsc.type = 'triangle';
     kickOsc.frequency.value = 40;
@@ -895,149 +847,53 @@ function initAudio(e) {
             if (chordAccent > 0.1) {
                 chordGain.gain.setValueAtTime(chordVol * chordAccent, arpTime);
                 chordGain.gain.exponentialRampToValueAtTime(0.015, arpTime + speed * 0.7);
-            } else {
-                chordGain.gain.setValueAtTime(0.015, arpTime);
             }
             
-            // Triangle - simple pulse, more active at high intensity
-            triangleGain.gain.cancelScheduledValues(arpTime);
-            if (intensity > 0.6 && step % 2 === 0) {
-                triangleGain.gain.setValueAtTime(0.08, arpTime);
-                triangleGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.5);
-            } else if (step % 4 === 0) {
-                triangleGain.gain.setValueAtTime(0.04, arpTime);
-                triangleGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.4);
-            }
-            
-            // Bass - follows chord root with simple pulse
+            // Bass - follows chord root, simple pattern
             bassOsc.frequency.setValueAtTime(currentChord[0] * octave * 0.5, arpTime);
-            const bassPattern = [1, 0, 0.7, 0, 1, 0.5, 0, 0.8, 1, 0, 0.6, 0, 1, 0, 0.7, 0.5];
-            const bassAccent = bassPattern[step];
+            const bassPattern = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];  // Simple 4-on-floor
             bassGain.gain.cancelScheduledValues(arpTime);
-            if (bassAccent > 0.5) {
-                bassGain.gain.setValueAtTime(0.05, arpTime);
-                bassGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.8);
-            } else if (bassAccent > 0.3) {
-                bassGain.gain.setValueAtTime(0.03, arpTime);
-                bassGain.gain.exponentialRampToValueAtTime(0.005, arpTime + speed * 0.5);
-            } else {
-                bassGain.gain.setValueAtTime(0.005, arpTime);
+            if (bassPattern[step]) {
+                bassGain.gain.setValueAtTime(0.08, arpTime);
+                bassGain.gain.exponentialRampToValueAtTime(0.02, arpTime + speed * 0.8);
             }
             
-            // Arp patterns using scale indices: 0=root, 1=2nd, 2=4th, 3=5th, 4=6th, 5=octave
-            // Mostly 0 (root), 3 (5th), 5 (octave) - always safe
-            const arpPatterns = [
-                [0, 3, 5, 3, 0, 3, 5, 3],  // Safe: 1-5-8-5 bounce
-                [0, 0, 3, 0, 5, 3, 0, 3],  // Driving root
-                [0, 3, 0, 5, 0, 3, 5, 0],  // Trance pump
-                [5, 3, 0, 3, 5, 0, 3, 0],  // Descending
-            ];
+            // Pad - follows chord, sustained
+            padOsc.frequency.setValueAtTime(currentChord[2] * octave, arpTime);
+            padGain.gain.setValueAtTime(0.03 + intensity * 0.02, arpTime);
             
-            const patternIdx = Math.floor(intensity * 3.99);  // 0-3 based on intensity
-            const noteIdx = arpPatterns[patternIdx][step % 8];
-            
-            // Octave jumps on beats 4, 8, 12, 16 for energy
-            const octaveUp = (step % 4 === 3 && intensity > 0.5) ? 2 : 1;
+            // Lead arp - simple 1-5-8 pattern
+            const arpPattern = [0, 3, 5, 3, 0, 3, 5, 3];  // root-fifth-octave
+            const noteIdx = arpPattern[step % 8];
             
             const accent = pattern[step];
-            
-            // Update lead intensity for glow sync
             leadIntensity = accent;
             
-            // Use scale note from current chord, with octave control
             const scaleNote = scale[noteIdx % scale.length];
-            const leadFreq = scaleNote * octave * octaveUp;
-            const noteTime = arpTime + swing;  // Apply swing timing
-            leadGain.gain.cancelScheduledValues(noteTime);
-            leadGain2.gain.cancelScheduledValues(noteTime);
-            leadGain3.gain.cancelScheduledValues(noteTime);
+            const leadFreq = scaleNote * octave;
+            const noteTime = arpTime;
             
-            // Lead volume scales with intensity
-            const leadVol = 0.08 + intensity * 0.10;
+            leadGain.gain.cancelScheduledValues(noteTime);
+            const leadVol = 0.10 + intensity * 0.08;
             
             if (accent > 0.5) {
                 leadOsc.frequency.setValueAtTime(leadFreq, noteTime);
-                leadOsc2.frequency.setValueAtTime(leadFreq * 2, noteTime);  // Octave up
-                leadOsc3.frequency.setValueAtTime(leadFreq, noteTime);
                 leadGain.gain.setValueAtTime(leadVol, noteTime);
-                leadGain2.gain.setValueAtTime(leadVol * 0.5, noteTime);
-                leadGain3.gain.setValueAtTime(leadVol * 0.3, noteTime);
                 leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.5);
-                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.4);
-                leadGain3.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.5);
             } else if (accent > 0.2) {
                 leadOsc.frequency.setValueAtTime(leadFreq, noteTime);
-                leadOsc2.frequency.setValueAtTime(leadFreq * 2, noteTime);
-                leadOsc3.frequency.setValueAtTime(leadFreq, noteTime);
                 leadGain.gain.setValueAtTime(leadVol * 0.5, noteTime);
-                leadGain2.gain.setValueAtTime(leadVol * 0.25, noteTime);
-                leadGain3.gain.setValueAtTime(leadVol * 0.15, noteTime);
                 leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.3);
-                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.25);
-                leadGain3.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.3);
             }
             
-            // Bass follows chord root
-            bassOsc.frequency.setValueAtTime(currentChord[0] * octave * 0.5, noteTime);
-            
-            // Sub bass - always on root
-            subOsc.frequency.setValueAtTime(currentChord[0] * 0.25, noteTime);
-            
-            // 8-bit drums - kick on 1 and 9, snare on 5 and 13, hats on others
-            // Drums come in after 32 steps (2 bars)
-            if (arpIndex > 32) {
-                const drumVol = Math.min(1, (arpIndex - 32) / 32);  // Fade in
-                
-                if (step === 0 || step === 8) {
-                    // Kick - low square pitch drop
-                    kickOsc.frequency.setValueAtTime(150, arpTime);
-                    kickOsc.frequency.exponentialRampToValueAtTime(40, arpTime + 0.1);
-                    kickGain.gain.setValueAtTime(0.15 * drumVol, arpTime);
-                    kickGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.15);
-                }
-                
-                // Varied drum patterns based on current pattern
-                const drumPatternIdx = currentPatternIndex % 4;
-                const kickPatterns = [
-                    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],  // Four on floor
-                    [1,0,0,0, 1,0,1,0, 1,0,0,0, 1,0,1,0],  // Pumping
-                    [1,0,1,0, 1,0,0,0, 1,0,1,0, 1,0,0,0],  // Driving
-                    [1,0,0,0, 1,0,0,1, 1,0,0,0, 1,0,1,0],  // Offbeat groove
-                ];
-                const snarePatterns = [
-                    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],  // Classic backbeat
-                    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1],  // Fill end
-                    [0,0,0,0, 1,0,0,0, 0,0,1,0, 1,0,0,0],  // Ghost note
-                    [0,0,0,0, 1,0,0,1, 0,0,0,0, 1,0,1,0],  // Busy
-                ];
-                const hatPatterns = [
-                    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],  // 8ths
-                    [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],  // 16ths drive
-                    [1,0,1,0, 1,1,1,0, 1,0,1,0, 1,1,1,1],  // Build up
-                    [0,1,0,1, 0,1,0,1, 0,1,0,1, 0,1,1,1],  // Offbeat disco
-                ];
-                
-                if (kickPatterns[drumPatternIdx][step]) {
+            // Simple drums - kick on 1, 5, 9, 13
+            if (arpIndex > 16) {  // Drums come in after 1 bar
+                if (step % 4 === 0) {
+                    kickOsc.frequency.setValueAtTime(120, arpTime);
+                    kickOsc.frequency.exponentialRampToValueAtTime(40, arpTime + 0.08);
                     kickGain.gain.cancelScheduledValues(arpTime);
-                    kickOsc.frequency.setValueAtTime(150, arpTime);
-                    kickOsc.frequency.exponentialRampToValueAtTime(40, arpTime + 0.1);
-                    kickGain.gain.setValueAtTime(0.12 * drumVol, arpTime);
-                    kickGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.15);
-                }
-                
-                if (snarePatterns[drumPatternIdx][step]) {
-                    // Snare - noise burst
-                    snareGain.gain.cancelScheduledValues(arpTime);
-                    snareGain.gain.setValueAtTime(0.1 * drumVol, arpTime);
-                    snareGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.1);
-                }
-                
-                if (hatPatterns[drumPatternIdx][step]) {
-                    // Hi-hat - high freq noise, velocity based on pattern
-                    hatGain.gain.cancelScheduledValues(arpTime);
-                    const hatVel = (step % 4 === 0) ? 0.05 : 0.03;
-                    hatGain.gain.setValueAtTime(hatVel * drumVol, arpTime);
-                    hatGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.05);
+                    kickGain.gain.setValueAtTime(0.12, arpTime);
+                    kickGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.12);
                 }
             }
             
