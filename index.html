@@ -470,6 +470,8 @@ let glitchGain = null;
 let noiseNode = null;
 let audioStarted = false;
 let clickGlitch = 0;
+let beatGlitch = 0;  // Synced to beat
+let glitchMode = 0;  // 0-3 based on grid position
 let currentPatternIndex = 0;
 let currentBpm = 140;
 let currentOctave = 4;  // Touch Y controls octave (2, 4, 8)
@@ -508,6 +510,13 @@ function handleInteraction(e, triggerGlitch) {
     } else if (e.clientX !== undefined) {
         x = e.clientX / window.innerWidth;
         y = e.clientY / window.innerHeight;
+    }
+    
+    // Grid position determines glitch mode (2x2 grid = 4 modes)
+    const newGlitchMode = Math.floor(x * 2) + Math.floor(y * 2) * 2;
+    if (newGlitchMode !== glitchMode) {
+        glitchMode = newGlitchMode;
+        clickGlitch = 1.0;  // Trigger glitch on mode change
     }
     
     // X = chord in progression (4 chords), Y = octave (0.5, 1, 2)
@@ -578,7 +587,7 @@ function initAudio(e) {
     bassOsc.type = 'square';
     bassOsc.frequency.value = chord[0];
     const bassGain = audioCtx.createGain();
-    bassGain.gain.value = 0.08;
+    bassGain.gain.value = 0.04;  // Quieter bass
     bassOsc.connect(bassGain);
     bassGain.connect(masterGain);
     bassOsc.start();
@@ -586,7 +595,7 @@ function initAudio(e) {
     
     // Chord voices - 3 square waves (SID has 3 voices)
     const chordGain = audioCtx.createGain();
-    chordGain.gain.value = 0.1;
+    chordGain.gain.value = 0.08;  // Slightly quieter chords
     chordGain.connect(masterGain);
     chordGain.connect(delay);
     
@@ -594,7 +603,7 @@ function initAudio(e) {
     for (let i = 0; i < 3; i++) {
         const osc = audioCtx.createOscillator();
         osc.type = i === 2 ? 'triangle' : 'square';  // Mix square + triangle
-        osc.frequency.value = chord[i] * 2;
+        osc.frequency.value = chord[i];  // One octave down (was *2)
         osc.connect(chordGain);
         osc.start();
         oscillators.push(osc);
@@ -604,7 +613,7 @@ function initAudio(e) {
     // Lead - square wave for stabs
     const leadOsc = audioCtx.createOscillator();
     leadOsc.type = 'square';
-    leadOsc.frequency.value = chord[0] * 4;
+    leadOsc.frequency.value = chord[0] * 2;  // One octave down (was *4)
     const leadGain = audioCtx.createGain();
     leadGain.gain.value = 0;
     leadOsc.connect(leadGain);
@@ -673,13 +682,13 @@ function initAudio(e) {
             const progChord = tranceProgression[window.jamState.progIndex % 4];
             const octave = window.jamState.octaveShift;
             
-            // Update chord frequencies
+            // Update chord frequencies - one octave down
             for (let i = 0; i < 3; i++) {
-                chordOscs[i].frequency.setValueAtTime(progChord[i] * 2 * octave, arpTime);
+                chordOscs[i].frequency.setValueAtTime(progChord[i] * octave, arpTime);
             }
             
             // Bass follows root, one octave down
-            bassOsc.frequency.setValueAtTime(progChord[0] * octave * 0.5, arpTime);
+            bassOsc.frequency.setValueAtTime(progChord[0] * octave * 0.25, arpTime);
             
             // Arp pattern on lead
             const noteIdx = step % 3;
@@ -687,13 +696,13 @@ function initAudio(e) {
             const accent = pattern[step];
             
             if (accent > 0.5) {
-                leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 4 * octave * (arpOctave ? 2 : 1), arpTime);
-                leadGain.gain.setValueAtTime(0.06, arpTime);
-                leadGain.gain.exponentialRampToValueAtTime(0.005, arpTime + speed * 0.6);
+                leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave * (arpOctave ? 2 : 1), arpTime);
+                leadGain.gain.setValueAtTime(0.12, arpTime);  // Louder lead
+                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.6);
             } else if (accent > 0.2) {
-                leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 4 * octave, arpTime);
-                leadGain.gain.setValueAtTime(0.03, arpTime);
-                leadGain.gain.exponentialRampToValueAtTime(0.005, arpTime + speed * 0.4);
+                leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 2 * octave, arpTime);
+                leadGain.gain.setValueAtTime(0.07, arpTime);  // Louder lead
+                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.4);
             }
             
             // 8-bit drums - kick on 1 and 9, snare on 5 and 13, hats on others
