@@ -470,13 +470,13 @@ let noiseNode = null;
 let audioStarted = false;
 let clickGlitch = 0;
 
-// Minor chords from D minor scale
+// Minor chords from D minor scale - lower octave
 const minorChords = [
-    [73.42, 87.31, 110, 146.83, 220],    // Dm: D2, F2, A2, D3, A3
-    [55, 65.41, 82.41, 110, 164.81],     // Am: A1, C2, E2, A2, E3
-    [82.41, 98, 123.47, 164.81, 246.94], // Em: E2, G2, B2, E3, B3
-    [98, 116.54, 146.83, 196, 293.66],   // Gm: G2, Bb2, D3, G3, D4
-    [61.74, 73.42, 92.5, 123.47, 185],   // Bm: B1, D2, F#2, B2, F#3
+    [36.71, 43.65, 55, 73.42, 110],       // Dm: D1, F1, A1, D2, A2
+    [27.5, 32.70, 41.20, 55, 82.41],      // Am: A0, C1, E1, A1, E2
+    [41.20, 49, 61.74, 82.41, 123.47],    // Em: E1, G1, B1, E2, B2
+    [49, 58.27, 73.42, 98, 146.83],       // Gm: G1, Bb1, D2, G2, D3
+    [30.87, 36.71, 46.25, 61.74, 92.5],   // Bm: B0, D1, F#1, B1, F#2
 ];
 
 function triggerClickGlitch() {
