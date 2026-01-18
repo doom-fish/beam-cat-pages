@@ -61,44 +61,42 @@ uniform float u_scale;
 uniform float u_bpm;    // Current BPM for rotation speed
 uniform vec2 u_touch;  // Touch/mouse position (0-1)
 
+// Rodrigues rotation: rotate vector p around axis k by angle theta
+vec3 rotateAxis(vec3 p, vec3 k, float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return p * c + cross(k, p) * s + k * dot(k, p) * (1.0 - c);
+}
+
 void main() {
     float t = u_time;
     vec3 p = a_pos * u_scale * 2.5;
     
-    // Calculate direction to finger (in screen space)
+    // Base Y rotation (spin) - speed based on BPM
+    float rotSpeed = u_bpm / 400.0;
+    p = rotateAxis(p, vec3(0.0, 1.0, 0.0), t * rotSpeed);
+    
+    // Target direction: finger position in screen space, pyramid points up (0,1,0)
     vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
+    fingerDir.x *= u_aspect;  // Correct for aspect ratio
     
-    // Calculate angle to finger and tilt pyramid to point at it
-    float angle = atan(-fingerDir.x, fingerDir.y);  // Inverted to point toward finger
-    float dist = length(fingerDir);  // How far from center
-    float tilt = dist * 2.5;  // Full tilt - can go upside down (past 90 degrees)
+    // The apex points up (+Y). We want to rotate it toward the finger.
+    // Finger is at (fingerDir.x, fingerDir.y, 0) in view space
+    // Current up is (0, 1, 0)
+    vec3 up = vec3(0.0, 1.0, 0.0);
+    vec3 target = normalize(vec3(fingerDir.x, -fingerDir.y, 0.3));  // Target direction (inverted Y, slight Z)
     
-    // Rotation speed scales with BPM (100-160 mapped to 0.15-0.45 rad/s)
-    float rotSpeed = u_bpm / 400.0;  // 100 BPM = 0.25, 160 BPM = 0.4
-    float rotY = t * rotSpeed;
-    float cy = cos(rotY), sy = sin(rotY);
+    // Axis of rotation is perpendicular to both up and target
+    vec3 axis = cross(up, target);
+    float axisLen = length(axis);
     
-    // Apply base Y rotation first
-    float x = p.x * cy - p.z * sy;
-    float z = p.x * sy + p.z * cy;
-    p.x = x; p.z = z;
-    
-    // Rotate around Y to face finger direction
-    float ca = cos(angle), sa = sin(angle);
-    x = p.x * ca - p.z * sa;
-    z = p.x * sa + p.z * ca;
-    p.x = x; p.z = z;
-    
-    // Tilt forward toward finger
-    float ct = cos(tilt), st = sin(tilt);
-    float y = p.y * ct - p.z * st;
-    z = p.y * st + p.z * ct;
-    p.y = y; p.z = z;
-    
-    // Rotate back
-    x = p.x * ca + p.z * sa;
-    z = -p.x * sa + p.z * ca;
-    p.x = x; p.z = z;
+    if (axisLen > 0.001) {
+        axis = normalize(axis);
+        // Angle between up and target
+        float angle = acos(clamp(dot(up, target), -1.0, 1.0));
+        // Apply rotation
+        p = rotateAxis(p, axis, angle);
+    }
     
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
