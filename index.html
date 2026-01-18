@@ -68,6 +68,15 @@ void main() {
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
     proj.x /= u_aspect;
+    
+    // Pyramid glitch offset - separate timing from logo (every 1-3s)
+    float pyramidGlitchSeed = floor(t * 0.5);
+    float pyramidGlitchRand = fract(sin(pyramidGlitchSeed * 43.7) * 12345.6);
+    float pyramidGlitchPhase = fract(t * 0.5);
+    float pyramidGlitchActive = step(0.85, pyramidGlitchPhase);
+    float jitterX = (fract(sin(floor(t * 25.0) * 78.2) * 43758.5) - 0.5) * 0.1 * pyramidGlitchActive;
+    proj.x += jitterX;
+    
     gl_Position = vec4(proj, 0.0, 1.0);
 }
 `;
