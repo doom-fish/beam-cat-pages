@@ -68,6 +68,15 @@ void main() {
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
     proj.x /= u_aspect;
+    
+    // Glitch offset every 2-4 seconds
+    float glitchSeed = floor(t * 0.35);
+    float glitchRand = fract(sin(glitchSeed * 127.1) * 43758.5);
+    float glitchPhase = fract(t * 0.35);
+    float glitchActive = step(0.88, glitchPhase);
+    float offsetX = (fract(sin(floor(t * 15.0) * 91.2) * 43758.5) - 0.5) * 0.08 * glitchActive;
+    proj.x += offsetX;
+    
     gl_Position = vec4(proj, 0.0, 1.0);
 }
 `;
@@ -77,16 +86,11 @@ precision highp float;
 uniform float u_flicker;
 uniform float u_time;
 void main() {
-    float glitchSeed = floor(u_time * 8.0);
-    float glitchRand = fract(sin(glitchSeed * 78.233) * 43758.5);
-    float glitch = step(0.85, glitchRand) * 0.3;
-    float flicker = u_flicker * (1.0 - glitch);
-    
     // Color glitch - every 2-4 seconds, flash to red or green
     float colorSeed = floor(u_time * 0.4);
     float colorRand = fract(sin(colorSeed * 127.1) * 43758.5);
     float colorPhase = fract(u_time * 0.4);
-    float colorActive = step(0.92, colorPhase);  // Active for last 8% of cycle
+    float colorActive = step(0.92, colorPhase);
     
     vec3 baseColor = vec3(0.8, 0.1, 1.0);  // purple
     if (colorActive > 0.5) {
@@ -97,7 +101,7 @@ void main() {
         }
     }
     
-    vec3 col = baseColor * flicker;
+    vec3 col = baseColor * u_flicker;
     gl_FragColor = vec4(col, 1.0);
 }
 `;
