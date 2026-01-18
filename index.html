@@ -259,6 +259,22 @@ void main() {
     }
     col += vec3(0.4, 0.02, 0.6) * logoGlow * 2.0;
     
+    // Pixelated particles around logo
+    vec2 particleUV = v_uv * 150.0;  // Grid size
+    vec2 particleCell = floor(particleUV);
+    float particleSeed = fract(sin(dot(particleCell, vec2(12.9898, 78.233))) * 43758.5);
+    float particleTime = fract(sin(particleSeed * 127.1 + u_time * 0.3) * 43758.5);
+    float particleLife = smoothstep(0.0, 0.1, particleTime) * smoothstep(1.0, 0.7, particleTime);
+    float particleShow = step(0.97, particleSeed);  // Only 3% of cells have particles
+    
+    // Only show near logo area
+    float logoDistX = abs(v_uv.x - 0.5);
+    float logoDistY = abs(v_uv.y - 0.47);
+    float nearLogo = step(logoDistX, 0.25) * step(logoDistY, 0.15);
+    
+    vec3 particleColor = vec3(0.8, 0.4, 1.0) * particleLife * particleShow * nearLogo * 0.6;
+    col += particleColor;
+    
     if (glitchUV.x >= 0.0 && glitchUV.x <= 1.0 && glitchUV.y >= 0.0 && glitchUV.y <= 1.0) {
         vec4 logo = texture2D(u_logo, glitchUV);
         float logoFlicker = mix(1.0, 0.92 + 0.08 * step(0.7, fract(sin(u_time * 43.0) * 12345.6)), flickerActive);
