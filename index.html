@@ -616,10 +616,29 @@ function initAudio(e) {
     // Stereo widener via slight pan
     const panValues = [-0.8, -0.5, -0.2, 0, 0, 0, 0.2, 0.5, 0.8];
     
+    // Convolution reverb using impulse response
+    const reverbGain = audioCtx.createGain();
+    reverbGain.gain.value = 0.3;  // Wet level
+    const reverbConv = audioCtx.createConvolver();
+    
+    // Generate simple reverb impulse
+    const reverbLen = audioCtx.sampleRate * 2;  // 2 second tail
+    const reverbBuffer = audioCtx.createBuffer(2, reverbLen, audioCtx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+        const data = reverbBuffer.getChannelData(ch);
+        for (let i = 0; i < reverbLen; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.5));
+        }
+    }
+    reverbConv.buffer = reverbBuffer;
+    reverbConv.connect(reverbGain);
+    reverbGain.connect(masterGain);
+    
     // Lead envelope - plucky attack
     const leadEnvGain = audioCtx.createGain();
     leadEnvGain.gain.value = 0.04;
     leadEnvGain.connect(gateGain);
+    leadEnvGain.connect(reverbConv);  // Send to reverb
     
     // High shelf for air
     const highShelf = audioCtx.createBiquadFilter();
@@ -628,6 +647,19 @@ function initAudio(e) {
     highShelf.gain.value = 6;
     highShelf.connect(leadEnvGain);
     
+    // Slow filter LFO for movement
+    let filterLfoPhase = 0;
+    function modulateFilters() {
+        if (!audioCtx) return;
+        filterLfoPhase += 0.02;
+        const lfo = Math.sin(filterLfoPhase) * 0.3 + 0.7;  // 0.4 to 1.0
+        leadFilters.forEach((f, i) => {
+            f.frequency.value = (2500 + i * 400) + lfo * 2000;  // Sweep 2500-4500Hz
+        });
+        setTimeout(modulateFilters, 50);
+    }
+    modulateFilters();
+    
     chord.forEach((freq, i) => {
         const noteGain = audioCtx.createGain();
         noteGain.gain.value = 0.035;
@@ -635,7 +667,7 @@ function initAudio(e) {
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.value = 3500 + i * 500;  // Bright cutoff
-        filter.Q.value = 2;  // Resonance peak
+        filter.Q.value = 3;  // Higher resonance for sweep
         filter.connect(noteGain);
         noteGain.connect(highShelf);
         leadFilters.push(filter);
