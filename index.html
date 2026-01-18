@@ -502,6 +502,7 @@ let currentPatternIndex = 0;
 let currentBpm = 140;
 let currentOctave = 4;  // Touch Y controls octave (2, 4, 8)
 let touchPos = { x: 0.5, y: 0.5 };  // Current touch/mouse position
+let smoothTouchPos = { x: 0.5, y: 0.5 };  // Smoothly interpolated position
 let isTouching = false;
 
 // Gate patterns - global for accelerometer access
@@ -959,10 +960,15 @@ function render() {
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_aspect'), aspect);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_scale'), scale);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_flicker'), flicker);
-    // Smooth touch position for pyramid rotation
-    const smoothX = isTouching ? touchPos.x : 0.5;
-    const smoothY = isTouching ? touchPos.y : 0.5;
-    gl.uniform2f(gl.getUniformLocation(octaProg, 'u_touch'), smoothX, smoothY);
+    
+    // Smooth interpolation toward touch position
+    const targetX = isTouching ? touchPos.x : 0.5;
+    const targetY = isTouching ? touchPos.y : 0.5;
+    const lerp = 0.08;  // Interpolation speed
+    smoothTouchPos.x += (targetX - smoothTouchPos.x) * lerp;
+    smoothTouchPos.y += (targetY - smoothTouchPos.y) * lerp;
+    gl.uniform2f(gl.getUniformLocation(octaProg, 'u_touch'), smoothTouchPos.x, smoothTouchPos.y);
+    
     gl.lineWidth(2);
     gl.drawArrays(gl.LINES, 0, pyramidVertices.length / 3);
     
