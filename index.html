@@ -654,9 +654,13 @@ let lastChordIndex = -1;
 function updateFilter(y) {
     if (!audioCtx || leadFilters.length === 0) return;
     const now = audioCtx.currentTime;
-    const filterFreq = 400 + (1 - y) * 4000;
+    // More dramatic range: 200-8000 Hz
+    const filterFreq = 200 + (1 - y) * 7800;
+    // Increase resonance at mid positions for wah effect
+    const resonance = 2 + Math.sin(y * Math.PI) * 4;
     leadFilters.forEach((filter, i) => {
-        filter.frequency.setTargetAtTime(filterFreq + i * 200, now, 0.05);
+        filter.frequency.setTargetAtTime(filterFreq + i * 100, now, 0.02);
+        filter.Q.setTargetAtTime(resonance, now, 0.02);
     });
 }
 
