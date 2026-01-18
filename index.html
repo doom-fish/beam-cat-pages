@@ -510,6 +510,8 @@ function handleInteraction(e, triggerGlitch) {
 }
 
 function initAudio(e) {
+    if (audioStarted) return;  // Don't reinitialize
+    audioStarted = true;
     
     const hint = document.getElementById('sound-hint');
     if (hint) hint.style.opacity = '0';
