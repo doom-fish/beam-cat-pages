@@ -507,7 +507,10 @@ function changeChord(x, y) {
             const noteIndex = Math.floor(leadIndex / leadDetuneCount) % 5;
             targetFreq = chord[noteIndex] * 4;
         }
-        osc.frequency.setTargetAtTime(targetFreq, now, 0.08);  // Fast glide
+        // Smooth glide using exponentialRampToValueAtTime
+        osc.frequency.cancelScheduledValues(now);
+        osc.frequency.setValueAtTime(osc.frequency.value, now);
+        osc.frequency.exponentialRampToValueAtTime(targetFreq, now + 0.15);
     });
 }
 
