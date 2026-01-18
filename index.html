@@ -104,16 +104,19 @@ void main() {
     vec2 offset = (u_touch - 0.5) * 2.0;  // -1 to 1
     float dist = length(offset);
     
-    // Only apply tilt if there's offset AND we're touching
     // Tilt angle scales with distance from center AND u_touching
-    float tiltAngle = dist * 1.2 * u_touching;  // Max ~70 degrees at corners
+    float tiltAngle = dist * 1.0 * u_touching;  // Max ~60 degrees at corners
     
-    if (tiltAngle > 0.001) {
-        // Tilt axis: perpendicular to offset direction in screen plane
-        // offset.x > 0 (right) -> tilt right -> rotate around axis pointing "into screen then down"
-        // offset.y > 0 (bottom of screen) -> tilt toward bottom -> rotate around X axis
-        // Axis is perpendicular to (offset.x, offset.y, 0) in direction that tilts apex toward offset
-        vec3 tiltAxis = normalize(vec3(-offset.y, 0.0, offset.x));
+    if (tiltAngle > 0.001 && dist > 0.01) {
+        // To tilt apex toward screen position (offset.x, offset.y):
+        // - offset.x > 0 (right) -> tilt right -> rotate around Z axis (negative for correct direction)
+        // - offset.y > 0 (bottom) -> tilt down -> rotate around X axis (negative Y in 3D)
+        // Axis perpendicular to offset direction: cross(Y_up, direction_to_finger)
+        // direction in 3D: (offset.x, -offset.y, 0) because screen Y is inverted
+        vec3 fingerDir3D = normalize(vec3(offset.x * u_aspect, -offset.y, 0.0));
+        vec3 up = vec3(0.0, 1.0, 0.0);
+        vec3 tiltAxis = normalize(cross(up, fingerDir3D));
+        
         vec4 tiltQ = qaxis(tiltAxis, tiltAngle);
         p = qrot(tiltQ, p);
     }
