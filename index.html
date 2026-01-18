@@ -653,8 +653,8 @@ function handleInteraction(e, triggerGlitch, setTouching = true) {
         window.jamState.octaveShift = octaves[gridX];
     }
     
-    // BPM slightly varies with intensity (125-138 trance range)
-    currentBpm = 125 + (1 - y) * 13;
+    // BPM - 132 is sweet spot for 8-bit trance
+    currentBpm = 132;
     
     if (!audioCtx) {
         initAudio(e);
@@ -761,47 +761,33 @@ function initAudio(e) {
         chordOscs.push(osc);
     }
     
-    // Lead - pure square wave (classic SID lead)
-    // 303-style acid lead with supersaw
+    // Pure 8-bit lead - pulse/square waves only, no filters
     const leadOsc = audioCtx.createOscillator();
-    leadOsc.type = 'sawtooth';
+    leadOsc.type = 'square';  // Classic chiptune
     leadOsc.frequency.value = chord[0] * 2;
-    
-    // 303 filter - resonant lowpass
-    const leadFilter = audioCtx.createBiquadFilter();
-    leadFilter.type = 'lowpass';
-    leadFilter.frequency.value = 800;
-    leadFilter.Q.value = 12;  // Resonance for that acid squelch
-    
     const leadGain = audioCtx.createGain();
     leadGain.gain.value = 0;
-    leadOsc.connect(leadFilter);
-    leadFilter.connect(leadGain);
+    leadOsc.connect(leadGain);
     leadGain.connect(masterGain);
     leadGain.connect(delay);
     leadOsc.start();
     oscillators.push(leadOsc);
     
-    // Second 303 voice - detuned for thickness
+    // Second lead - square one octave up for brightness
     const leadOsc2 = audioCtx.createOscillator();
-    leadOsc2.type = 'sawtooth';
-    leadOsc2.frequency.value = chord[0] * 2 * 1.008;
-    const leadFilter2 = audioCtx.createBiquadFilter();
-    leadFilter2.type = 'lowpass';
-    leadFilter2.frequency.value = 900;
-    leadFilter2.Q.value = 10;
+    leadOsc2.type = 'square';
+    leadOsc2.frequency.value = chord[0] * 4;  // Octave up
     const leadGain2 = audioCtx.createGain();
     leadGain2.gain.value = 0;
-    leadOsc2.connect(leadFilter2);
-    leadFilter2.connect(leadGain2);
+    leadOsc2.connect(leadGain2);
     leadGain2.connect(masterGain);
     leadOsc2.start();
     oscillators.push(leadOsc2);
     
-    // Third voice - square sub for punch
+    // Third lead - triangle for warmth
     const leadOsc3 = audioCtx.createOscillator();
-    leadOsc3.type = 'square';
-    leadOsc3.frequency.value = chord[0];  // One octave down
+    leadOsc3.type = 'triangle';
+    leadOsc3.frequency.value = chord[0] * 2;
     const leadGain3 = audioCtx.createGain();
     leadGain3.gain.value = 0;
     leadOsc3.connect(leadGain3);
@@ -965,42 +951,30 @@ function initAudio(e) {
             leadGain.gain.cancelScheduledValues(noteTime);
             leadGain2.gain.cancelScheduledValues(noteTime);
             leadGain3.gain.cancelScheduledValues(noteTime);
-            leadFilter.frequency.cancelScheduledValues(noteTime);
-            leadFilter2.frequency.cancelScheduledValues(noteTime);
             
             // Lead volume scales with intensity
-            const leadVol = 0.06 + intensity * 0.08;
+            const leadVol = 0.08 + intensity * 0.10;
             
             if (accent > 0.5) {
                 leadOsc.frequency.setValueAtTime(leadFreq, noteTime);
-                leadOsc2.frequency.setValueAtTime(leadFreq * 1.008, noteTime);
-                leadOsc3.frequency.setValueAtTime(leadFreq / 2, noteTime);
+                leadOsc2.frequency.setValueAtTime(leadFreq * 2, noteTime);  // Octave up
+                leadOsc3.frequency.setValueAtTime(leadFreq, noteTime);
                 leadGain.gain.setValueAtTime(leadVol, noteTime);
-                leadGain2.gain.setValueAtTime(leadVol * 0.8, noteTime);
-                leadGain3.gain.setValueAtTime(leadVol * 0.5, noteTime);
-                // 303 filter - more open at high intensity
-                const filterPeak = 1500 + intensity * 1500;
-                leadFilter.frequency.setValueAtTime(filterPeak, noteTime);
-                leadFilter.frequency.exponentialRampToValueAtTime(400, noteTime + speed * 0.4);
-                leadFilter2.frequency.setValueAtTime(filterPeak * 1.1, noteTime);
-                leadFilter2.frequency.exponentialRampToValueAtTime(500, noteTime + speed * 0.35);
+                leadGain2.gain.setValueAtTime(leadVol * 0.5, noteTime);
+                leadGain3.gain.setValueAtTime(leadVol * 0.3, noteTime);
                 leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.5);
-                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.45);
-                leadGain3.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.4);
+                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.4);
+                leadGain3.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.5);
             } else if (accent > 0.2) {
                 leadOsc.frequency.setValueAtTime(leadFreq, noteTime);
-                leadOsc2.frequency.setValueAtTime(leadFreq * 1.008, noteTime);
-                leadOsc3.frequency.setValueAtTime(leadFreq / 2, noteTime);
+                leadOsc2.frequency.setValueAtTime(leadFreq * 2, noteTime);
+                leadOsc3.frequency.setValueAtTime(leadFreq, noteTime);
                 leadGain.gain.setValueAtTime(leadVol * 0.5, noteTime);
-                leadGain2.gain.setValueAtTime(leadVol * 0.4, noteTime);
-                leadGain3.gain.setValueAtTime(leadVol * 0.25, noteTime);
-                leadFilter.frequency.setValueAtTime(1200, noteTime);
-                leadFilter.frequency.exponentialRampToValueAtTime(350, noteTime + speed * 0.3);
-                leadFilter2.frequency.setValueAtTime(1300, noteTime);
-                leadFilter2.frequency.exponentialRampToValueAtTime(400, noteTime + speed * 0.28);
+                leadGain2.gain.setValueAtTime(leadVol * 0.25, noteTime);
+                leadGain3.gain.setValueAtTime(leadVol * 0.15, noteTime);
                 leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.3);
-                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.28);
-                leadGain3.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.25);
+                leadGain2.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.25);
+                leadGain3.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.3);
             }
             
             // Bass follows chord root
