@@ -688,12 +688,12 @@ function initAudio(e) {
             
             if (accent > 0.5) {
                 leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 4 * octave * (arpOctave ? 2 : 1), arpTime);
-                leadGain.gain.setValueAtTime(0.12, arpTime);
-                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.6);
+                leadGain.gain.setValueAtTime(0.06, arpTime);
+                leadGain.gain.exponentialRampToValueAtTime(0.005, arpTime + speed * 0.6);
             } else if (accent > 0.2) {
                 leadOsc.frequency.setValueAtTime(progChord[noteIdx] * 4 * octave, arpTime);
-                leadGain.gain.setValueAtTime(0.06, arpTime);
-                leadGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.4);
+                leadGain.gain.setValueAtTime(0.03, arpTime);
+                leadGain.gain.exponentialRampToValueAtTime(0.005, arpTime + speed * 0.4);
             }
             
             // 8-bit drums - kick on 1 and 9, snare on 5 and 13, hats on others
