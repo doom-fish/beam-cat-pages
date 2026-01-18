@@ -687,8 +687,19 @@ function initAudio(e) {
                 chordOscs[i].frequency.setValueAtTime(progChord[i] * octave, arpTime);
             }
             
-            // Bass follows root, one octave down
+            // Bass pattern - 8th note pulse with octave jumps
             bassOsc.frequency.setValueAtTime(progChord[0] * octave * 0.25, arpTime);
+            const bassPattern = [1, 0, 0.7, 0, 1, 0.5, 0, 0.8, 1, 0, 0.6, 0, 1, 0, 0.7, 0.5];
+            const bassAccent = bassPattern[step];
+            if (bassAccent > 0.5) {
+                bassGain.gain.setValueAtTime(0.05, arpTime);
+                bassGain.gain.exponentialRampToValueAtTime(0.01, arpTime + speed * 0.8);
+            } else if (bassAccent > 0.3) {
+                bassGain.gain.setValueAtTime(0.03, arpTime);
+                bassGain.gain.exponentialRampToValueAtTime(0.005, arpTime + speed * 0.5);
+            } else {
+                bassGain.gain.setValueAtTime(0.005, arpTime);
+            }
             
             // Arp pattern on lead
             const noteIdx = step % 3;
