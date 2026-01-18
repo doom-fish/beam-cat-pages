@@ -694,26 +694,24 @@ function initAudio(e) {
     let arpIndex = 0;
     let arpTime = audioCtx.currentTime;
     
-    // Pentatonic-based - no 3rd or 7th, always sounds good
-    // Notes: 1 (root), 2, 4, 5, 6, 8 (octave) - skip 3 and 7
-    // D minor pentatonic: D, F, G, A, C (no E, no C#)
-    const baseFreq = 73.42;  // D2
+    // Pentatonic-based - trainer2.mod style (A minor)
+    // A minor: A, C, D, E, G
+    const baseFreq = 110;  // A2
     const scale = [
-        baseFreq,           // 1 - root (D)
-        baseFreq * 9/8,     // 2 - second (E) 
-        baseFreq * 4/3,     // 4 - fourth (G)
-        baseFreq * 3/2,     // 5 - fifth (A) - always safe
-        baseFreq * 5/3,     // 6 - sixth (B)
-        baseFreq * 2,       // 8 - octave (D)
+        baseFreq,           // A (root)
+        baseFreq * 6/5,     // C (minor 3rd)  
+        baseFreq * 4/3,     // D (4th)
+        baseFreq * 3/2,     // E (5th)
+        baseFreq * 9/5,     // G (minor 7th)
+        baseFreq * 2,       // A (octave)
     ];
     
-    // Simple progression: always resolve to root every 4 bars
-    // i - iv - v - i (Dm - Gm - Am - Dm)
+    // Simple Am progression - stays on Am, moves to Em briefly
     const progression = [
-        [scale[0], scale[3], scale[5]],  // Dm: 1-5-8
-        [scale[2], scale[4], scale[2]*2], // Gm: 4-6-8  
-        [scale[3], scale[5], scale[3]*2], // Am: 5-8-10
-        [scale[0], scale[3], scale[5]],  // Dm: 1-5-8 (resolve)
+        [scale[0], scale[3], scale[5]],  // Am: A-E-A
+        [scale[0], scale[3], scale[5]],  // Am
+        [scale[3]/2, scale[0], scale[3]], // Em: E-A-E  
+        [scale[0], scale[3], scale[5]],  // Am
     ];
     
     // Touch control state
@@ -849,52 +847,50 @@ function initAudio(e) {
                 chordGain.gain.exponentialRampToValueAtTime(0.015, arpTime + speed * 0.7);
             }
             
-            // Bass - follows chord root, simple pattern
-            bassOsc.frequency.setValueAtTime(currentChord[0] * octave * 0.5, arpTime);
-            const bassPattern = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];  // Simple 4-on-floor
+            // Bass - trainer2 style: root note with staccato hits
+            const bassNotes = [0, 0, 3, 0, 0, 3, 0, 3, 0, 0, 3, 0, 0, 3, 0, 3];  // Root and fifth
+            bassOsc.frequency.setValueAtTime(scale[bassNotes[step]] * octave * 0.25, arpTime);
             bassGain.gain.cancelScheduledValues(arpTime);
-            if (bassPattern[step]) {
-                bassGain.gain.setValueAtTime(0.08, arpTime);
-                bassGain.gain.exponentialRampToValueAtTime(0.02, arpTime + speed * 0.8);
-            }
+            bassGain.gain.setValueAtTime(0.10, arpTime);
+            bassGain.gain.exponentialRampToValueAtTime(0.02, arpTime + speed * 0.6);
             
-            // Pad - follows chord, sustained
-            padOsc.frequency.setValueAtTime(currentChord[2] * octave, arpTime);
-            padGain.gain.setValueAtTime(0.03 + intensity * 0.02, arpTime);
+            // Pad - sustained fifth
+            padOsc.frequency.setValueAtTime(scale[3] * octave, arpTime);
+            padGain.gain.setValueAtTime(0.025 + intensity * 0.015, arpTime);
             
-            // Lead arp - simple 1-5-8 pattern
-            const arpPattern = [0, 3, 5, 3, 0, 3, 5, 3];  // root-fifth-octave
+            // Lead arp - trainer2 style: A-1, A-2, C-3, B-2 (root, octave, 3rd+oct, 2nd+oct)
+            // In our scale: 0=A, 1=C, 2=D, 3=E, 4=G, 5=A'
+            const arpPattern = [0, 5, 1, 4, 0, 5, 1, 4];  // A, A', C', G'
             const noteIdx = arpPattern[step % 8];
             
             const accent = pattern[step];
             leadIntensity = accent;
             
             const scaleNote = scale[noteIdx % scale.length];
-            const leadFreq = scaleNote * octave;
+            const leadFreq = scaleNote * octave * (noteIdx >= 5 ? 1 : 2);  // Higher octave for melody
             const noteTime = arpTime;
             
             leadGain.gain.cancelScheduledValues(noteTime);
-            const leadVol = 0.10 + intensity * 0.08;
+            const leadVol = 0.12 + intensity * 0.06;
             
             if (accent > 0.5) {
                 leadOsc.frequency.setValueAtTime(leadFreq, noteTime);
                 leadGain.gain.setValueAtTime(leadVol, noteTime);
-                leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.5);
+                leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.4);
             } else if (accent > 0.2) {
                 leadOsc.frequency.setValueAtTime(leadFreq, noteTime);
-                leadGain.gain.setValueAtTime(leadVol * 0.5, noteTime);
+                leadGain.gain.setValueAtTime(leadVol * 0.6, noteTime);
                 leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.3);
             }
             
-            // Simple drums - kick on 1, 5, 9, 13
-            if (arpIndex > 16) {  // Drums come in after 1 bar
-                if (step % 4 === 0) {
-                    kickOsc.frequency.setValueAtTime(120, arpTime);
-                    kickOsc.frequency.exponentialRampToValueAtTime(40, arpTime + 0.08);
-                    kickGain.gain.cancelScheduledValues(arpTime);
-                    kickGain.gain.setValueAtTime(0.12, arpTime);
-                    kickGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.12);
-                }
+            // Kick - trainer2 style: every 4 steps with occasional double
+            const kickPattern = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0];
+            if (arpIndex > 16 && kickPattern[step]) {
+                kickOsc.frequency.setValueAtTime(100, arpTime);
+                kickOsc.frequency.exponentialRampToValueAtTime(35, arpTime + 0.06);
+                kickGain.gain.cancelScheduledValues(arpTime);
+                kickGain.gain.setValueAtTime(0.15, arpTime);
+                kickGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.10);
             }
             
             arpIndex++;
