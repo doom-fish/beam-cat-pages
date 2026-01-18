@@ -361,7 +361,8 @@ void main() {
         // Aspect-correct the ring to be circular on screen
         vec2 ringOffset = vec2(cos(angle) / u_aspect, sin(angle)) * ringRadius;
         // u_touch.y is screen coords (0=top, 1=bottom), shader UV has 0=bottom, 1=top
-        vec2 fingerPos = vec2(u_touch.x, 1.0 - u_touch.y);
+        // Offset up slightly so ring is more centered
+        vec2 fingerPos = vec2(u_touch.x, 1.0 - u_touch.y + 0.05);
         vec2 fingerRingPos = fingerPos + ringOffset;
         
         // Gentle dust drift when not touching
