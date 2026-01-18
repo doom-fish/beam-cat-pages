@@ -82,16 +82,6 @@ vec4 qaxis(vec3 axis, float angle) {
     return vec4(axis * sin(ha), cos(ha));
 }
 
-// Quaternion that rotates 'from' direction to 'to' direction
-vec4 qfromto(vec3 from, vec3 to) {
-    float d = dot(from, to);
-    if (d > 0.9999) return vec4(0.0, 0.0, 0.0, 1.0);
-    if (d < -0.9999) return vec4(1.0, 0.0, 0.0, 0.0); // 180 flip around X
-    vec3 axis = normalize(cross(from, to));
-    float angle = acos(clamp(d, -1.0, 1.0));
-    return qaxis(axis, angle);
-}
-
 // Slerp between two quaternions
 vec4 qslerp(vec4 q1, vec4 q2, float t) {
     float d = dot(q1, q2);
@@ -109,30 +99,24 @@ void main() {
     vec4 spinQ = qaxis(vec3(0.0, 1.0, 0.0), u_rotation);
     p = qrot(spinQ, p);
     
-    // Identity quaternion (no tilt - pointing up)
-    vec4 identityQ = vec4(0.0, 0.0, 0.0, 1.0);
+    // Calculate tilt from finger position
+    // u_touch is 0-1, center is (0.5, 0.5)
+    vec2 offset = (u_touch - 0.5) * 2.0;  // -1 to 1
+    float dist = length(offset);
     
-    // Pyramid apex points in +Y direction (up)
-    vec3 up = vec3(0.0, 1.0, 0.0);
+    // Only apply tilt if there's offset AND we're touching
+    // Tilt angle scales with distance from center AND u_touching
+    float tiltAngle = dist * 1.2 * u_touching;  // Max ~70 degrees at corners
     
-    // Target direction: toward finger position in screen space
-    // Screen coords: x right, y DOWN. We invert y for 3D where y is UP
-    vec2 fingerScreen = (u_touch - 0.5) * 2.0;  // -1 to 1
-    
-    // Create 3D target direction - finger position + slight forward tilt
-    // fingerScreen.y is positive at bottom of screen, we want apex to point down there
-    vec3 target = normalize(vec3(
-        fingerScreen.x * u_aspect,  // X matches screen X
-        -fingerScreen.y,            // Invert Y: bottom of screen = -Y = point down
-        0.5                         // Slight forward bias
-    ));
-    
-    // Quaternion to rotate from up to target
-    vec4 tiltQ = qfromto(up, target);
-    
-    // Slerp between identity (up) and tilt based on u_touching
-    vec4 finalQ = qslerp(identityQ, tiltQ, u_touching);
-    p = qrot(finalQ, p);
+    if (tiltAngle > 0.001) {
+        // Tilt axis: perpendicular to offset direction in screen plane
+        // offset.x > 0 (right) -> tilt right -> rotate around axis pointing "into screen then down"
+        // offset.y > 0 (bottom of screen) -> tilt toward bottom -> rotate around X axis
+        // Axis is perpendicular to (offset.x, offset.y, 0) in direction that tilts apex toward offset
+        vec3 tiltAxis = normalize(vec3(-offset.y, 0.0, offset.x));
+        vec4 tiltQ = qaxis(tiltAxis, tiltAngle);
+        p = qrot(tiltQ, p);
+    }
     
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
@@ -1008,8 +992,9 @@ document.addEventListener('click', (e) => handleInteraction(e, true));
 document.addEventListener('touchend', (e) => {
     e.preventDefault();
     isTouching = false;  // Release
-    // Keep last touchPos - don't reset! u_touching fades pyramid to up
-    handleInteraction(e, true);
+    // Don't call handleInteraction - it would reset touchPos to center and isTouching to true
+    // Just start audio if needed
+    if (!audioStarted) { startAudio(); }
 });
 document.addEventListener('touchstart', (e) => {
     isTouching = true;
