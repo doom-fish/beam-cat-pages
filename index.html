@@ -531,7 +531,7 @@ function handleInteraction(e, triggerGlitch) {
 }
 
 function initAudio(e) {
-    if (audioStarted) return;  // Prevent multiple inits
+    if (audioStarted) return;
     audioStarted = true;
     
     const hint = document.getElementById('sound-hint');
@@ -540,16 +540,17 @@ function initAudio(e) {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AudioContext();
     
-    // iOS unlock
+    // iOS unlock - must happen synchronously in user gesture
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    
+    // Create silent buffer and play immediately
     const unlock = audioCtx.createBuffer(1, 1, 22050);
     const unlockSource = audioCtx.createBufferSource();
     unlockSource.buffer = unlock;
     unlockSource.connect(audioCtx.destination);
     unlockSource.start(0);
-    
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
     
     masterGain = audioCtx.createGain();
     masterGain.gain.value = 0.15;
