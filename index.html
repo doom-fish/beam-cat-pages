@@ -806,8 +806,27 @@ function initAudio(e) {
             }
             
             // Arp pattern on lead (dual saw voices)
-            const noteIdx = step % 3;
-            const arpOctave = Math.floor(step / 4) % 2;
+            // Different arp patterns based on grid position
+            const arpPatternIdx = currentPatternIndex % 6;
+            const arpPatterns = [
+                [0, 1, 2, 1],           // Up-down
+                [0, 2, 1, 2],           // Skip up
+                [2, 1, 0, 1],           // Down-up
+                [0, 0, 1, 2],           // Root-root-up
+                [0, 2, 0, 1],           // Root-fifth-root-third
+                [2, 2, 1, 0],           // High-high-down
+            ];
+            const octavePatterns = [
+                [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1],  // Alternating
+                [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],  // Half bar
+                [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],  // Every other
+                [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],  // Build up
+                [1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1],  // Syncopated
+                [0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0],  // Shuffle
+            ];
+            
+            const noteIdx = arpPatterns[arpPatternIdx][step % 4];
+            const arpOctave = octavePatterns[arpPatternIdx][step];
             const accent = pattern[step];
             
             // Update lead intensity for glow sync
