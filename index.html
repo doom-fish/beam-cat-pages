@@ -615,7 +615,7 @@ function triggerGlitchSound() {
 let lastChordIndex = -1;
 let lastOctaveIndex = -1;
 
-const octaveMultipliers = [8, 4, 2, 1, 0.5];  // Top=high, bottom=low
+const octaveMultipliers = [4, 2, 1];  // 3 octave zones: high, mid, low
 
 function updateOctave(y) {
     const octaveIndex = Math.floor(y * octaveMultipliers.length);
