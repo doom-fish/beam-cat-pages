@@ -531,6 +531,8 @@ function handleInteraction(e, triggerGlitch) {
 }
 
 function initAudio(e) {
+    if (audioStarted) return;  // Prevent multiple inits
+    audioStarted = true;
     
     const hint = document.getElementById('sound-hint');
     if (hint) hint.style.opacity = '0';
