@@ -672,20 +672,6 @@ function initAudio(e) {
     highShelf.connect(leadEnvGain);
     
     // Accelerometer: X = speed (BPM), Y = octave multiplier
-    let hasAccel = false;
-    
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission().then(response => {
-            if (response === 'granted') {
-                hasAccel = true;
-                window.addEventListener('devicemotion', handleMotion);
-            }
-        }).catch(() => {});
-    } else if (window.DeviceMotionEvent) {
-        hasAccel = true;
-        window.addEventListener('devicemotion', handleMotion);
-    }
-    
     function handleMotion(e) {
         if (e.accelerationIncludingGravity) {
             // X tilt = BPM (90-160)
@@ -693,17 +679,34 @@ function initAudio(e) {
             const normalizedX = (x + 10) / 20;
             currentBpm = 90 + Math.max(0, Math.min(1, normalizedX)) * 70;
             
-            // Y tilt = octave shift (applied to all oscillators)
+            // Y tilt = octave shift
             const y = e.accelerationIncludingGravity.y || 0;
             const normalizedY = (y + 10) / 20;
-            const octaveShift = 0.5 + Math.max(0, Math.min(1, normalizedY)) * 1.5; // 0.5x to 2x
+            const octaveShift = 0.5 + Math.max(0, Math.min(1, normalizedY)) * 1.5;
             
-            // Apply octave shift to bass
-            if (chordOscillators.length > 0) {
-                const baseFreq = minorChords[currentPatternIndex % minorChords.length][0] * 4;
-                chordOscillators[0].frequency.value = baseFreq * octaveShift;
+            // Apply to all oscillators
+            if (chordOscillators.length > 0 && lastChordIndex >= 0) {
+                const chord = minorChords[Math.min(lastChordIndex, minorChords.length - 1)];
+                const now = audioCtx.currentTime;
+                chordOscillators.forEach((osc, i) => {
+                    const baseFreq = (chord[i % chord.length] || chord[0]) * 4;
+                    osc.frequency.setTargetAtTime(baseFreq * octaveShift, now, 0.1);
+                });
             }
         }
+    }
+    
+    // Request permission and add listener
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission()
+            .then(response => {
+                if (response === 'granted') {
+                    window.addEventListener('devicemotion', handleMotion);
+                }
+            })
+            .catch(console.log);
+    } else if (window.DeviceMotionEvent) {
+        window.addEventListener('devicemotion', handleMotion);
     }
     
     let filterLfoPhase = 0;
