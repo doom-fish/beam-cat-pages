@@ -499,6 +499,7 @@ let smoothTouchPos = { x: 0.5, y: 0.5 };  // Smoothly interpolated position
 let isTouching = false;
 let pyramidRotation = 0;  // Accumulated rotation angle
 let lastFrameTime = 0;  // For delta time
+let smoothTouching = 0;  // Smoothed touching state for camera tilt
 
 // Gate patterns - global for accelerometer access
 const gatePatterns = [
@@ -1022,7 +1023,12 @@ function render() {
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_scale'), scale);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_flicker'), flicker);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_rotation'), pyramidRotation);
-    gl.uniform1f(gl.getUniformLocation(octaProg, 'u_touching'), isTouching ? 1.0 : 0.0);
+    
+    // Smooth the touching state for camera tilt
+    const targetTouching = isTouching ? 1.0 : 0.0;
+    smoothTouching += (targetTouching - smoothTouching) * 0.15;
+    if (smoothTouching < 0.01) smoothTouching = 0;
+    gl.uniform1f(gl.getUniformLocation(octaProg, 'u_touching'), smoothTouching);
     
     // Smooth interpolation toward touch position
     const targetX = isTouching ? touchPos.x : 0.5;
