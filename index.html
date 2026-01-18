@@ -75,31 +75,27 @@ void main() {
     // Base Y rotation (spin) - angle from JS (accumulated based on BPM)
     p = rotateAxis(p, vec3(0.0, 1.0, 0.0), u_rotation);
     
-    // Tilt toward finger using axis-angle (only when actively touching)
-    // When not touching, pyramid points straight up (no tilt applied)
-    if (u_touching > 0.05) {
-        vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
-        float dist = length(fingerDir);
+    // Tilt toward finger - scaled by u_touching (0 = no tilt = pointing up)
+    vec2 fingerDir = (u_touch - 0.5) * 2.0;  // -1 to 1
+    float dist = length(fingerDir);
+    
+    if (dist > 0.05) {
+        // Target direction: finger position + outward toward camera
+        vec3 up = vec3(0.0, 1.0, 0.0);
+        float cameraZ = 0.3 + dist * 0.5;
+        vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, cameraZ));
         
-        if (dist > 0.05) {
-            // Target direction: finger position + outward toward camera
-            vec3 up = vec3(0.0, 1.0, 0.0);
-            float cameraZ = 0.3 + dist * 0.5;
-            vec3 target = normalize(vec3(fingerDir.x * u_aspect, -fingerDir.y, cameraZ));
-            
-            // Rotation axis perpendicular to both
-            vec3 axis = cross(up, target);
-            float axisLen = length(axis);
-            
-            if (axisLen > 0.001) {
-                axis = normalize(axis);
-                float angle = acos(clamp(dot(up, target), -1.0, 1.0));
-                // Scale tilt by touching state for smooth release
-                p = rotateAxis(p, axis, angle * u_touching);
-            }
+        // Rotation axis perpendicular to both
+        vec3 axis = cross(up, target);
+        float axisLen = length(axis);
+        
+        if (axisLen > 0.001) {
+            axis = normalize(axis);
+            float angle = acos(clamp(dot(up, target), -1.0, 1.0));
+            // u_touching scales tilt: 1.0 = full tilt, 0.0 = no tilt (up)
+            p = rotateAxis(p, axis, angle * u_touching);
         }
     }
-    // When u_touching < 0.05, no tilt is applied - pyramid points up
     
     float d = 8.0 - p.z * 0.3;
     vec2 proj = p.xy / d;
