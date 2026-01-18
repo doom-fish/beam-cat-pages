@@ -610,27 +610,48 @@ function initAudio(e) {
     }
     sweepFilter();
     
-    // Lead supersaw layer - bright and cutting
-    const superDetunes = [-30, -18, -8, 0, 8, 18, 30];
+    // Classic trance supersaw lead - wide stereo, bright, with pluck
+    const superDetunes = [-40, -25, -15, -7, 0, 7, 15, 25, 40];  // 9 voice unison
+    
+    // Stereo widener via slight pan
+    const panValues = [-0.8, -0.5, -0.2, 0, 0, 0, 0.2, 0.5, 0.8];
+    
+    // Lead envelope - plucky attack
+    const leadEnvGain = audioCtx.createGain();
+    leadEnvGain.gain.value = 0.04;
+    leadEnvGain.connect(gateGain);
+    
+    // High shelf for air
+    const highShelf = audioCtx.createBiquadFilter();
+    highShelf.type = 'highshelf';
+    highShelf.frequency.value = 4000;
+    highShelf.gain.value = 6;
+    highShelf.connect(leadEnvGain);
     
     chord.forEach((freq, i) => {
         const noteGain = audioCtx.createGain();
-        noteGain.gain.value = 0.025;
+        noteGain.gain.value = 0.035;
         
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 2000 + i * 300;  // Bright
-        filter.Q.value = 1.5;  // Slight resonance
+        filter.frequency.value = 3500 + i * 500;  // Bright cutoff
+        filter.Q.value = 2;  // Resonance peak
         filter.connect(noteGain);
-        noteGain.connect(gateGain);  // Route lead through gate too
+        noteGain.connect(highShelf);
         leadFilters.push(filter);
         
-        superDetunes.forEach(detune => {
+        superDetunes.forEach((detune, j) => {
             const osc = audioCtx.createOscillator();
             osc.type = 'sawtooth';
-            osc.frequency.value = freq * 4;  // Two octaves up for lead
-            osc.detune.value = detune;
-            osc.connect(filter);
+            osc.frequency.value = freq * 4;  // Two octaves up
+            osc.detune.value = detune + (Math.random() - 0.5) * 5;  // Slight random for thickness
+            
+            // Stereo pan
+            const panner = audioCtx.createStereoPanner();
+            panner.pan.value = panValues[j] || 0;
+            osc.connect(panner);
+            panner.connect(filter);
+            
             osc.start();
             oscillators.push(osc);
             chordOscillators.push(osc);
