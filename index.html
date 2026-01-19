@@ -337,7 +337,7 @@ void main() {
     // Dust particles - form rotating donut ring around finger
     vec2 particleOrigin = vec2(0.5, 0.47);
     
-    for (float i = 0.0; i < 60.0; i += 1.0) {
+    for (float i = 0.0; i < 100.0; i += 1.0) {
         float seed = fract(sin(i * 127.1) * 43758.5);
         float seed2 = fract(sin(i * 269.5) * 43758.5);
         float seed3 = fract(sin(i * 419.2) * 43758.5);
@@ -362,7 +362,7 @@ void main() {
         
         // Donut ring - all particles at same radius, evenly spaced
         float ringRadius = 0.035;  // Smaller, tighter ring
-        float angleOffset = i * 6.283185 / 60.0;  // Evenly space 60 particles around circle
+        float angleOffset = i * 6.283185 / 100.0;  // Evenly space 100 particles around circle
         float rotationSpeed = 2.0;  // All rotate together
         float angle = u_time * rotationSpeed + angleOffset;
         
@@ -716,7 +716,7 @@ function render() {
     
     // Smooth the touching state - slower going to ring, faster returning
     const targetTouching = isTouching ? 1.0 : 0.0;
-    const lerpRate = isTouching ? 0.03 : 0.06;  // Slower to ring, faster back
+    const lerpRate = isTouching ? 0.015 : 0.06;  // Much slower to ring, faster back
     smoothTouching += (targetTouching - smoothTouching) * lerpRate;
     if (smoothTouching < 0.01) smoothTouching = 0;
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_touching'), smoothTouching);
