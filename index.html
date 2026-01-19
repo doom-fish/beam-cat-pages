@@ -53,6 +53,7 @@ const quadVertices = new Float32Array([-1,-1, 1,-1, -1,1, 1,-1, 1,1, -1,1]);
 // Shaders
 const OCTA_VS = `
 attribute vec3 a_pos;
+varying float v_height;  // For pulse effect
 uniform float u_time;
 uniform float u_aspect;
 uniform float u_scale;
@@ -92,6 +93,7 @@ vec4 qslerp(vec4 q1, vec4 q2, float t) {
 
 void main() {
     vec3 p = a_pos * u_scale * 2.5;
+    v_height = a_pos.y;  // Pass original height for pulse
     
     // Base Y rotation (spin)
     vec4 spinQ = qaxis(vec3(0.0, 1.0, 0.0), u_rotation);
@@ -139,8 +141,13 @@ void main() {
 const OCTA_FS = `
 precision mediump float;
 uniform float u_flicker;
+uniform float u_time;
+varying float v_height;
 void main() {
-    vec3 col = vec3(0.8, 0.1, 1.0) * u_flicker;
+    // Pulse traveling up the pyramid
+    float pulse = sin((v_height * 3.0 - u_time * 2.0) * 3.14159) * 0.5 + 0.5;
+    float brightness = u_flicker * (0.7 + pulse * 0.3);
+    vec3 col = vec3(0.8, 0.1, 1.0) * brightness;
     gl_FragColor = vec4(col, 1.0);
 }
 `;
@@ -588,11 +595,11 @@ function handleInteraction(e, triggerGlitch, setTouching = true) {
 }
 
 // Event handlers - mouse and touch
-document.addEventListener('click', (e) => handleInteraction(e, true, false));  // Don't set isTouching on click
+document.addEventListener('click', (e) => handleInteraction(e, false, false));  // No glitch on click
 document.addEventListener('touchend', (e) => {
     e.preventDefault();
     isTouching = false;
-    handleInteraction(e, true, false);
+    // No glitch on release
 });
 document.addEventListener('touchstart', (e) => {
     e.preventDefault();
