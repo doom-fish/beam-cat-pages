@@ -360,10 +360,11 @@ void main() {
             particleOrigin.y + (cycleSeed2 - 0.5) * logoHeight * 1.0
         );
         
-        // Donut ring - all particles at same radius, evenly spaced
+        // Donut ring - particles with individual friction/speed variation
         float ringRadius = 0.035;  // Smaller, tighter ring
         float angleOffset = i * 6.283185 / 100.0;  // Evenly space 100 particles around circle
-        float rotationSpeed = 2.0;  // All rotate together
+        float friction = 0.7 + seed * 0.6;  // Each particle has different friction (0.7 to 1.3)
+        float rotationSpeed = 2.0 * friction;
         float angle = u_time * rotationSpeed + angleOffset;
         
         // Aspect-correct the ring to be circular on screen
