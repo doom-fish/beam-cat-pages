@@ -139,7 +139,6 @@ void main() {
 const OCTA_FS = `
 precision mediump float;
 uniform float u_flicker;
-uniform float u_time;
 void main() {
     vec3 col = vec3(0.8, 0.1, 1.0) * u_flicker;
     gl_FragColor = vec4(col, 1.0);
