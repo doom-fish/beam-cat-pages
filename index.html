@@ -21,29 +21,12 @@
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
         html, body { background: #000; overflow: hidden; height: 100%; }
         canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
-        #sound-hint {
-            position: fixed;
-            bottom: 15%;
-            left: 50%;
-            transform: translateX(-50%);
-            color: rgba(200, 100, 255, 0.8);
-            font-family: monospace;
-            font-size: 14px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            animation: pulse 2s ease-in-out infinite;
-            pointer-events: none;
-            text-shadow: 0 0 10px rgba(200, 100, 255, 0.5);
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
-        }
+        #sound-hint { display: none; }
     </style>
 </head>
 <body>
     <canvas id="canvas"></canvas>
-    <div id="sound-hint">tap for sound</div>
+    <div id="sound-hint"></div>
     <script>
 // Pyramid geometry
 const pyramidVertices = (() => {
@@ -559,65 +542,28 @@ function hash(p) {
     return ((p3 + p3 * (p3 + 19.19)) * (p3 + p3 * (p3 + 19.19))) % 1.0;
 }
 
-// Audio setup - supersaw chord
-let audioCtx = null;
-let masterGain = null;
-let oscillators = [];
-let chordOscillators = [];
-let leadFilters = [];
-let glitchGain = null;
-let noiseNode = null;
-let audioStarted = false;
+// Visual state
 let clickGlitch = 0;
-let beatGlitch = 0;  // Synced to beat
-let glitchMode = 0;  // 0-3 based on grid position
-let currentPatternIndex = 0;
-let currentBpm = 140;
-let currentOctave = 4;  // Touch Y controls octave (2, 4, 8)
-let touchPos = { x: 0.5, y: 0.5 };  // Current touch/mouse position
-let smoothTouchPos = { x: 0.5, y: 0.5 };  // Smoothly interpolated position
+let beatGlitch = 0;
+let glitchMode = 0;
+let touchPos = { x: 0.5, y: 0.5 };
+let smoothTouchPos = { x: 0.5, y: 0.5 };
 let isTouching = false;
-let pyramidRotation = 0;  // Accumulated rotation angle
-let lastFrameTime = 0;  // For delta time
-let smoothTouching = 0;  // Smoothed touching state for camera tilt
-let leadIntensity = 0;  // Current lead pattern intensity for glow sync
+let pyramidRotation = 0;
+let lastFrameTime = 0;
+let smoothTouching = 0;
+let leadIntensity = 0;
 
-// Gate patterns - 16 trance patterns for full grid
+// Gate patterns for visual glitch sync
 const gatePatterns = [
-    // Row 0 - Classic trance
-    [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],  // 0: Straight 16ths
-    [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],  // 1: Four on floor
-    [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1],  // 2: Trance pump
-    [1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0],  // 3: Double hit
-    // Row 1 - Offbeat
-    [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],  // 4: Offbeat stab
-    [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],  // 5: Syncopated
-    [1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0],  // 6: Euro hook
-    [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1],  // 7: Offbeat build
-    // Row 2 - Driving
-    [1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0],  // 8: Driving anthem
-    [1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0],  // 9: Hard trance
-    [1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1],  // 10: Tech trance
-    [1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0],  // 11: Rolling
-    // Row 3 - Intense
-    [1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0],  // 12: Full drive
-    [1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1],  // 13: Supersaw
-    [1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1],  // 14: Peak time
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  // 15: Full blast
-];
-
-// Minor chords from D minor scale - sub bass octave
-const minorChords = [
-    [18.35, 21.83, 27.5, 36.71, 55],       // Dm: D0, F0, A0, D1, A1
-    [13.75, 16.35, 20.60, 27.5, 41.20],    // Am: A-1, C0, E0, A0, E1
-    [20.60, 24.5, 30.87, 41.20, 61.74],    // Em: E0, G0, B0, E1, B1
-    [24.5, 29.14, 36.71, 49, 73.42],       // Gm: G0, Bb0, D1, G1, D2
-    [15.43, 18.35, 23.12, 30.87, 46.25],   // Bm: B-1, D0, F#0, B0, F#1
+    [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+    [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+    [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1],
+    [1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
 ];
 
 function triggerClickGlitch() {
     clickGlitch = 1.0;
-    triggerGlitchSound();
 }
 
 function handleInteraction(e, triggerGlitch, setTouching = true) {
@@ -630,358 +576,56 @@ function handleInteraction(e, triggerGlitch, setTouching = true) {
         y = e.clientY / window.innerHeight;
     }
     
-    // Update touch position for pyramid rotation (only if we have valid coords)
     if (setTouching) {
         touchPos.x = x;
         touchPos.y = y;
         isTouching = true;
     }
     
-    // Grid position determines effects (4x4 grid = 16 cells)
+    // Trigger glitch on grid cell change
     const gridX = Math.floor(x * 4);
     const gridY = Math.floor(y * 4);
     const newGlitchMode = gridX + gridY * 4;
     if (newGlitchMode !== glitchMode) {
         glitchMode = newGlitchMode;
-        clickGlitch = 0.8;  // Trigger glitch on cell change
-    }
-    
-    // Jam controls - Y = intensity (top high, bottom chill), X = octave
-    if (window.jamState) {
-        window.jamState.intensity = 1 - y;  // Top = high intensity
-        const octaves = [0.5, 1, 1.5, 2];  // Left low, right high
-        window.jamState.octaveShift = octaves[gridX];
-    }
-    
-    // BPM - 132 is sweet spot for 8-bit trance
-    currentBpm = 132;
-    
-    if (!audioCtx) {
-        initAudio(e);
+        clickGlitch = 0.8;
     }
     
     if (triggerGlitch) triggerClickGlitch();
 }
 
-function initAudio(e) {
-    const hint = document.getElementById('sound-hint');
-    if (hint) hint.style.display = 'none';
-    
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    audioCtx = new AudioContext();
-    
-    // Resume synchronously (required for iOS in user gesture)
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-    
-    masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.3;
-    masterGain.connect(audioCtx.destination);
-    
-    // C64 SID-style 8-bit synth
-    const chord = minorChords[Math.floor(Math.random() * minorChords.length)];
-    
-    // Simple delay for space - longer for synthwave atmosphere
-    const delay = audioCtx.createDelay(0.8);
-    delay.delayTime.value = 0.4;
-    const delayGain = audioCtx.createGain();
-    delayGain.gain.value = 0.35;
-    delay.connect(delayGain);
-    delayGain.connect(masterGain);
-    
-    // SID arpeggiator state
-    let arpIndex = 0;
-    let arpTime = audioCtx.currentTime;
-    
-    // Pentatonic-based - trainer2.mod style (A minor)
-    // A minor: A, C, D, E, G
-    const baseFreq = 110;  // A2
-    const scale = [
-        baseFreq,           // A (root)
-        baseFreq * 6/5,     // C (minor 3rd)  
-        baseFreq * 4/3,     // D (4th)
-        baseFreq * 3/2,     // E (5th)
-        baseFreq * 9/5,     // G (minor 7th)
-        baseFreq * 2,       // A (octave)
-    ];
-    
-    // Simple Am progression - stays on Am, moves to Em briefly
-    const progression = [
-        [scale[0], scale[3], scale[5]],  // Am: A-E-A
-        [scale[0], scale[3], scale[5]],  // Am
-        [scale[3]/2, scale[0], scale[3]], // Em: E-A-E  
-        [scale[0], scale[3], scale[5]],  // Am
-    ];
-    
-    // Touch control state
-    window.jamState = {
-        intensity: 0.5,
-        octaveShift: 1,
-    };
-    
-    // Simple 3-voice setup like C64 SID
-    
-    // Voice 1: Bass - square
-    const bassOsc = audioCtx.createOscillator();
-    bassOsc.type = 'square';
-    bassOsc.frequency.value = chord[0];
-    const bassGain = audioCtx.createGain();
-    bassGain.gain.value = 0.08;
-    bassOsc.connect(bassGain);
-    bassGain.connect(masterGain);
-    bassOsc.start();
-    oscillators.push(bassOsc);
-    
-    // Voice 2: Lead - square  
-    const leadOsc = audioCtx.createOscillator();
-    leadOsc.type = 'square';
-    leadOsc.frequency.value = chord[0] * 2;
-    const leadGain = audioCtx.createGain();
-    leadGain.gain.value = 0;
-    leadOsc.connect(leadGain);
-    leadGain.connect(masterGain);
-    leadGain.connect(delay);
-    leadOsc.start();
-    oscillators.push(leadOsc);
-    
-    // Voice 3: Pad/chord - triangle
-    const padOsc = audioCtx.createOscillator();
-    padOsc.type = 'triangle';
-    padOsc.frequency.value = chord[2];
-    const padGain = audioCtx.createGain();
-    padGain.gain.value = 0.04;
-    padOsc.connect(padGain);
-    padGain.connect(masterGain);
-    padOsc.start();
-    oscillators.push(padOsc);
-    
-    // 8-bit drums
-    // Kick - triangle wave with pitch envelope
-    const kickOsc = audioCtx.createOscillator();
-    kickOsc.type = 'triangle';
-    kickOsc.frequency.value = 40;
-    const kickGain = audioCtx.createGain();
-    kickGain.gain.value = 0;
-    kickOsc.connect(kickGain);
-    kickGain.connect(masterGain);
-    kickOsc.start();
-    oscillators.push(kickOsc);
-    
-    // Snare/Hat - noise source
-    const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.5, audioCtx.sampleRate);
-    const noiseData = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < noiseData.length; i++) {
-        noiseData[i] = Math.random() * 2 - 1;
-    }
-    
-    const snareNoise = audioCtx.createBufferSource();
-    snareNoise.buffer = noiseBuffer;
-    snareNoise.loop = true;
-    const snareFilter = audioCtx.createBiquadFilter();
-    snareFilter.type = 'bandpass';
-    snareFilter.frequency.value = 3000;
-    snareFilter.Q.value = 1;
-    const snareGain = audioCtx.createGain();
-    snareGain.gain.value = 0;
-    snareNoise.connect(snareFilter);
-    snareFilter.connect(snareGain);
-    snareGain.connect(masterGain);
-    snareNoise.start();
-    
-    const hatNoise = audioCtx.createBufferSource();
-    hatNoise.buffer = noiseBuffer;
-    hatNoise.loop = true;
-    const hatFilter = audioCtx.createBiquadFilter();
-    hatFilter.type = 'highpass';
-    hatFilter.frequency.value = 8000;
-    const hatGain = audioCtx.createGain();
-    hatGain.gain.value = 0;
-    hatNoise.connect(hatFilter);
-    hatFilter.connect(hatGain);
-    hatGain.connect(masterGain);
-    hatNoise.start();
-    
-    // 8-bit arpeggiator with touch control
-    function scheduleArp() {
-        if (!audioCtx) return;
-        
-        const baseSpeed = 60 / currentBpm / 4;
-        const now = audioCtx.currentTime;
-        
-        // Only schedule if we're not too far ahead - prevents automation buildup
-        if (arpTime > now + 0.2) {
-            setTimeout(scheduleArp, 50);
-            return;
-        }
-        
-        while (arpTime < now + 0.1) {
-            const pattern = gatePatterns[currentPatternIndex % gatePatterns.length];
-            const step = arpIndex % 16;
-            
-            // No swing - straight electro/trance timing
-            const swing = 0;
-            const speed = baseSpeed;
-            
-            // Chord changes automatically every bar, resolves every 4 bars
-            const bar = Math.floor(arpIndex / 16) % 4;
-            const currentChord = progression[bar];
-            const octave = window.jamState.octaveShift;
-            
-            // Update chord frequencies
-            for (let i = 0; i < 3; i++) {
-                chordOscs[i].frequency.setValueAtTime(currentChord[i] * octave, arpTime + swing);
-            }
-            
-            // Simple gate pattern - intensity controls density
-            const intensity = window.jamState.intensity;
-            const gateIdx = Math.floor(intensity * (gatePatterns.length - 0.01));
-            const gatePattern = gatePatterns[gateIdx];
-            const chordAccent = gatePattern[step];
-            
-            // Chord pad - louder at higher intensity
-            const chordVol = 0.03 + intensity * 0.05;
-            chordGain.gain.cancelScheduledValues(arpTime);
-            if (chordAccent > 0.1) {
-                chordGain.gain.setValueAtTime(chordVol * chordAccent, arpTime);
-                chordGain.gain.exponentialRampToValueAtTime(0.015, arpTime + speed * 0.7);
-            }
-            
-            // Bass - trainer2 style: root note with staccato hits
-            const bassNotes = [0, 0, 3, 0, 0, 3, 0, 3, 0, 0, 3, 0, 0, 3, 0, 3];  // Root and fifth
-            bassOsc.frequency.setValueAtTime(scale[bassNotes[step]] * octave * 0.25, arpTime);
-            bassGain.gain.cancelScheduledValues(arpTime);
-            bassGain.gain.setValueAtTime(0.10, arpTime);
-            bassGain.gain.exponentialRampToValueAtTime(0.02, arpTime + speed * 0.6);
-            
-            // Pad - sustained fifth
-            padOsc.frequency.setValueAtTime(scale[3] * octave, arpTime);
-            padGain.gain.setValueAtTime(0.025 + intensity * 0.015, arpTime);
-            
-            // Lead arp - trainer2 style: A-1, A-2, C-3, B-2 (root, octave, 3rd+oct, 2nd+oct)
-            // In our scale: 0=A, 1=C, 2=D, 3=E, 4=G, 5=A'
-            const arpPattern = [0, 5, 1, 4, 0, 5, 1, 4];  // A, A', C', G'
-            const noteIdx = arpPattern[step % 8];
-            
-            const accent = pattern[step];
-            leadIntensity = accent;
-            
-            const scaleNote = scale[noteIdx % scale.length];
-            const leadFreq = scaleNote * octave * (noteIdx >= 5 ? 1 : 2);  // Higher octave for melody
-            const noteTime = arpTime;
-            
-            leadGain.gain.cancelScheduledValues(noteTime);
-            const leadVol = 0.12 + intensity * 0.06;
-            
-            if (accent > 0.5) {
-                leadOsc.frequency.setValueAtTime(leadFreq, noteTime);
-                leadGain.gain.setValueAtTime(leadVol, noteTime);
-                leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.4);
-            } else if (accent > 0.2) {
-                leadOsc.frequency.setValueAtTime(leadFreq, noteTime);
-                leadGain.gain.setValueAtTime(leadVol * 0.6, noteTime);
-                leadGain.gain.exponentialRampToValueAtTime(0.01, noteTime + speed * 0.3);
-            }
-            
-            // Kick - trainer2 style: every 4 steps with occasional double
-            const kickPattern = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0];
-            if (arpIndex > 16 && kickPattern[step]) {
-                kickOsc.frequency.setValueAtTime(100, arpTime);
-                kickOsc.frequency.exponentialRampToValueAtTime(35, arpTime + 0.06);
-                kickGain.gain.cancelScheduledValues(arpTime);
-                kickGain.gain.setValueAtTime(0.15, arpTime);
-                kickGain.gain.exponentialRampToValueAtTime(0.001, arpTime + 0.10);
-            }
-            
-            arpIndex++;
-            arpTime += speed;
-        }
-        setTimeout(scheduleArp, 40);
-    }
-    scheduleArp();
-    
-    // Show that audio started
-    if (hint) {
-        hint.textContent = 'Audio playing';
-        setTimeout(() => { hint.style.opacity = '0'; }, 1000);
-    }
-}
-
-function triggerGlitchSound() {}
-
-let lastChordIndex = -1;
-
-function changeChord(chordIndex) {
-    if (!audioCtx || chordOscillators.length === 0) return;
-    if (chordIndex === lastChordIndex) return;
-    lastChordIndex = chordIndex;
-    
-    // For C64 style - just update bass, arpeggiator handles the rest
-    const chord = minorChords[Math.min(chordIndex, minorChords.length - 1)];
-    const now = audioCtx.currentTime;
-    
-    // Bass is first oscillator
-    if (chordOscillators[0]) {
-        chordOscillators[0].frequency.setTargetAtTime(chord[0], now, 0.05);
-    }
-}
-
-// Start audio on user interaction - touchend is most reliable on iOS
+// Event handlers - mouse and touch
 document.addEventListener('click', (e) => handleInteraction(e, true));
 document.addEventListener('touchend', (e) => {
     e.preventDefault();
-    isTouching = false;  // Release
-    // Call handleInteraction but don't update touchPos or isTouching (false flag)
+    isTouching = false;
     handleInteraction(e, true, false);
 });
 document.addEventListener('touchstart', (e) => {
+    e.preventDefault();
     isTouching = true;
-    let x = e.touches[0].clientX / window.innerWidth;
-    let y = e.touches[0].clientY / window.innerHeight;
-    touchPos.x = x;
-    touchPos.y = y;
-    // Snap smoothTouchPos to new position immediately
-    smoothTouchPos.x = x;
-    smoothTouchPos.y = y;
-    
-    // Same grid controls as touchmove
-    const gridX = Math.floor(x * 4);
-    if (window.jamState) {
-        window.jamState.intensity = 1 - y;
-        const octaves = [0.5, 1, 1.5, 2];
-        const newOctave = octaves[gridX];
-        if (newOctave !== window.jamState.octaveShift) {
-            beatGlitch = 1.0;
-        }
-        window.jamState.octaveShift = newOctave;
+    if (e.touches[0]) {
+        let x = e.touches[0].clientX / window.innerWidth;
+        let y = e.touches[0].clientY / window.innerHeight;
+        touchPos.x = x;
+        touchPos.y = y;
+        smoothTouchPos.x = x;
+        smoothTouchPos.y = y;
     }
     clickGlitch = 0.8;
-});
+}, { passive: false });
 document.addEventListener('mousedown', (e) => {
     isTouching = true;
     let x = e.clientX / window.innerWidth;
     let y = e.clientY / window.innerHeight;
     touchPos.x = x;
     touchPos.y = y;
-    // Snap smoothTouchPos to new position immediately
     smoothTouchPos.x = x;
     smoothTouchPos.y = y;
-    
-    const gridX = Math.floor(x * 4);
-    if (window.jamState) {
-        window.jamState.intensity = 1 - y;
-        const octaves = [0.5, 1, 1.5, 2];
-        const newOctave = octaves[gridX];
-        if (newOctave !== window.jamState.octaveShift) {
-            beatGlitch = 1.0;
-        }
-        window.jamState.octaveShift = newOctave;
-    }
     clickGlitch = 0.8;
 });
 document.addEventListener('mouseup', () => {
     isTouching = false;
-    // Keep last touchPos - don't reset! u_touching fades pyramid to up
 });
 document.addEventListener('mousemove', (e) => {
     if (isTouching) {
@@ -991,32 +635,18 @@ document.addEventListener('mousemove', (e) => {
 });
 document.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    let x = 0.5, y = 0.5;
-    if (e.touches && e.touches[0]) {
-        x = e.touches[0].clientX / window.innerWidth;
-        y = e.touches[0].clientY / window.innerHeight;
-    }
-    
-    // Update touch position for pyramid
-    touchPos.x = x;
-    touchPos.y = y;
-    
-    // Simple glitch on movement
-    const gridX = Math.floor(x * 4);
-    const newGlitchMode = gridX;
-    if (newGlitchMode !== glitchMode) {
-        glitchMode = newGlitchMode;
-    }
-    
-    // Jam controls - Y = intensity, X = octave
-    if (window.jamState) {
-        window.jamState.intensity = 1 - y;
-        const octaves = [0.5, 1, 1.5, 2];
-        const newOctave = octaves[gridX];
-        if (newOctave !== window.jamState.octaveShift) {
+    if (e.touches[0]) {
+        let x = e.touches[0].clientX / window.innerWidth;
+        let y = e.touches[0].clientY / window.innerHeight;
+        touchPos.x = x;
+        touchPos.y = y;
+        
+        const gridX = Math.floor(x * 4);
+        const newGlitchMode = gridX;
+        if (newGlitchMode !== glitchMode) {
+            glitchMode = newGlitchMode;
             beatGlitch = 1.0;
         }
-        window.jamState.octaveShift = newOctave;
     }
 }, { passive: false });
 
@@ -1050,23 +680,14 @@ function render() {
     const pyramidGlitchPhase = fract(t * 0.2);
     const pyramidGlitchActive = pyramidGlitchPhase > 0.92 && pyramidGlitchRand > 0.6;
     
-    // Trigger sound on logo glitch
-    if (glitchActive && !lastGlitchState) {
-        triggerGlitchSound();
-    }
     lastGlitchState = glitchActive;
-    
-    // Trigger sound on pyramid RGB split
-    if (pyramidGlitchActive && !lastPyramidGlitchState) {
-        triggerGlitchSound();
-    }
     lastPyramidGlitchState = pyramidGlitchActive;
     
-    // Update pyramid rotation based on BPM - super slow base
+    // Update pyramid rotation based on time - slow base
     const now = performance.now() / 1000;
     const deltaTime = lastFrameTime ? (now - lastFrameTime) : 0.016;
     lastFrameTime = now;
-    const rotSpeed = 0.02 + (currentBpm - 100) / 60;  // Base 0.02 rad/s (very slow), scales gently with BPM
+    const rotSpeed = 0.05;  // Slow constant rotation
     pyramidRotation += deltaTime * rotSpeed;
     
     // Render pyramid to FBO
