@@ -714,9 +714,10 @@ function render() {
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_flicker'), flicker);
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_rotation'), pyramidRotation);
     
-    // Smooth the touching state for camera tilt
+    // Smooth the touching state - slower going to ring, faster returning
     const targetTouching = isTouching ? 1.0 : 0.0;
-    smoothTouching += (targetTouching - smoothTouching) * 0.06;
+    const lerpRate = isTouching ? 0.03 : 0.06;  // Slower to ring, faster back
+    smoothTouching += (targetTouching - smoothTouching) * lerpRate;
     if (smoothTouching < 0.01) smoothTouching = 0;
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_touching'), smoothTouching);
     
