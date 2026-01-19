@@ -588,7 +588,7 @@ function handleInteraction(e, triggerGlitch, setTouching = true) {
 }
 
 // Event handlers - mouse and touch
-document.addEventListener('click', (e) => handleInteraction(e, true));
+document.addEventListener('click', (e) => handleInteraction(e, true, false));  // Don't set isTouching on click
 document.addEventListener('touchend', (e) => {
     e.preventDefault();
     isTouching = false;
@@ -702,7 +702,7 @@ function render() {
     
     // Smooth the touching state for camera tilt
     const targetTouching = isTouching ? 1.0 : 0.0;
-    smoothTouching += (targetTouching - smoothTouching) * 0.12;
+    smoothTouching += (targetTouching - smoothTouching) * 0.15;
     if (smoothTouching < 0.01) smoothTouching = 0;
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_touching'), smoothTouching);
     
