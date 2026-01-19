@@ -54,7 +54,6 @@ const quadVertices = new Float32Array([-1,-1, 1,-1, -1,1, 1,-1, 1,1, -1,1]);
 const OCTA_VS = `
 attribute vec3 a_pos;
 varying float v_height;  // For pulse effect
-uniform float u_time;
 uniform float u_aspect;
 uniform float u_scale;
 uniform float u_rotation;  // Accumulated rotation angle (controlled by BPM in JS)
@@ -379,8 +378,15 @@ void main() {
         float spread = (seed - 0.5) * 0.03 * phase;
         vec2 logoPos = spawnPos + vec2(spread + turbulence, riseSpeed);
         
+        // Elastic ease with overshoot per particle (staggered by seed)
+        float stagger = seed * 0.3;  // Each particle has slight delay
+        float elasticT = clamp((u_touching - stagger) / (1.0 - stagger), 0.0, 1.0);
+        // Elastic overshoot: goes past 1.0 then settles
+        float elastic = elasticT < 1.0 ? 
+            1.0 - pow(2.0, -10.0 * elasticT) * cos(elasticT * 3.14159 * 3.0) : 1.0;
+        
         // Smooth lerp to ring when touching, back to logo when not
-        vec2 particlePos = mix(logoPos, fingerRingPos, u_touching);
+        vec2 particlePos = mix(logoPos, fingerRingPos, elastic);
         
         // Bigger square pixels - aspect corrected
         float size = 0.002 + seed3 * 0.001;
