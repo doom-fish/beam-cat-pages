@@ -716,7 +716,7 @@ function render() {
     
     // Smooth the touching state for camera tilt
     const targetTouching = isTouching ? 1.0 : 0.0;
-    smoothTouching += (targetTouching - smoothTouching) * 0.15;
+    smoothTouching += (targetTouching - smoothTouching) * 0.06;
     if (smoothTouching < 0.01) smoothTouching = 0;
     gl.uniform1f(gl.getUniformLocation(octaProg, 'u_touching'), smoothTouching);
     
