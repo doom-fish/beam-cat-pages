@@ -378,15 +378,16 @@ void main() {
         float spread = (seed - 0.5) * 0.03 * phase;
         vec2 logoPos = spawnPos + vec2(spread + turbulence, riseSpeed);
         
-        // Elastic ease with overshoot per particle (staggered by seed)
-        float stagger = seed * 0.3;  // Each particle has slight delay
-        float elasticT = clamp((u_touching - stagger) / (1.0 - stagger), 0.0, 1.0);
-        // Elastic overshoot: goes past 1.0 then settles
-        float elastic = elasticT < 1.0 ? 
-            1.0 - pow(2.0, -10.0 * elasticT) * cos(elasticT * 3.14159 * 3.0) : 1.0;
+        // Spring bounce with high damping per particle
+        float stagger = seed * 0.2;
+        float t = clamp((u_touching - stagger) / (1.0 - stagger), 0.0, 1.0);
+        // Damped spring: decaying oscillation
+        float damping = 8.0;  // High damping = settles fast
+        float frequency = 12.0;  // Bounce frequency
+        float spring = 1.0 - exp(-damping * t) * cos(frequency * t);
         
         // Smooth lerp to ring when touching, back to logo when not
-        vec2 particlePos = mix(logoPos, fingerRingPos, elastic);
+        vec2 particlePos = mix(logoPos, fingerRingPos, spring);
         
         // Bigger square pixels - aspect corrected
         float size = 0.002 + seed3 * 0.001;
