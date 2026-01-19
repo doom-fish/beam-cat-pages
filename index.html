@@ -355,7 +355,7 @@ void main() {
         );
         
         // Donut ring - all particles at same radius, evenly spaced
-        float ringRadius = 0.06;  // Fixed radius for clear ring
+        float ringRadius = 0.035;  // Smaller, tighter ring
         float angleOffset = i * 6.283185 / 60.0;  // Evenly space 60 particles around circle
         float rotationSpeed = 2.0;  // All rotate together
         float angle = u_time * rotationSpeed + angleOffset;
@@ -363,8 +363,7 @@ void main() {
         // Aspect-correct the ring to be circular on screen
         vec2 ringOffset = vec2(cos(angle) / u_aspect, sin(angle)) * ringRadius;
         // u_touch.y is screen coords (0=top, 1=bottom), shader UV has 0=bottom, 1=top
-        // Offset up slightly so ring is more centered
-        vec2 fingerPos = vec2(u_touch.x, 1.0 - u_touch.y + 0.05);
+        vec2 fingerPos = vec2(u_touch.x, 1.0 - u_touch.y);
         vec2 fingerRingPos = fingerPos + ringOffset;
         
         // Gentle dust drift when not touching
